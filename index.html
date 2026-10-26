@@ -188,83 +188,23 @@
       padding: 18px 20px;
     }
 
-    .month-bar-wrapper {
+    /* Painel do Ciclo de Contas */
+    .cycle-bar-wrapper {
       background: var(--bg-elevated);
       border-radius: var(--radius-md);
-      padding: 12px 14px;
+      padding: 12px 16px;
       border: 0.5px solid var(--border-hairline);
       margin-bottom: 16px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-    }
-
-    .month-bar-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .year-selector {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-
-    .year-btn {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      border: none;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
     }
 
     .status-counter {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       font-weight: 600;
       color: var(--text-secondary);
-      background: var(--bg-primary);
-      padding: 4px 10px;
-      border-radius: 99px;
-    }
-
-    .months-scroll {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 6px;
-    }
-
-    @media (min-width: 640px) {
-      .months-scroll {
-        grid-template-columns: repeat(12, 1fr);
-      }
-    }
-
-    .month-pill {
-      border: none;
-      background: var(--bg-primary);
-      color: var(--text-secondary);
-      padding: 8px 4px;
-      border-radius: 8px;
-      font-size: 0.76rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      text-align: center;
-    }
-
-    .month-pill.active {
-      background: var(--graphite-dark);
-      color: #FFFFFF;
-      font-weight: 700;
     }
 
     .subs-summary-card {
@@ -518,16 +458,9 @@
 
   <main class="main-container">
     <section id="viewContas">
-      <div class="month-bar-wrapper">
-        <div class="month-bar-header">
-          <div class="year-selector">
-            <button class="year-btn" onclick="mudarAno(-1)">‹</button>
-            <span id="anoDisplay">2026</span>
-            <button class="year-btn" onclick="mudarAno(1)">›</button>
-          </div>
-          <div class="status-counter" id="progressoMesDisplay">0 de 0 pagas</div>
-        </div>
-        <div class="months-scroll" id="barraMeses"></div>
+      <div class="cycle-bar-wrapper">
+        <div class="status-counter" id="progressoGeralDisplay">0 de 0 pagas</div>
+        <button class="btn-ios btn-ios-secondary" onclick="zerarCiclo()" title="Zerar checks para o próximo ciclo de pagamento">🔄 Novo Ciclo</button>
       </div>
 
       <div class="cards-grid" id="gridContas"></div>
@@ -611,13 +544,9 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'controle_ios_titanium_v3';
-    const SYNC_CONFIG_KEY = 'controle_sync_config_v3';
-    const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const STORAGE_KEY = 'controle_ios_titanium_v4';
+    const SYNC_CONFIG_KEY = 'controle_sync_config_v4';
 
-    const hoje = new Date();
-    let anoSelecionado = hoje.getFullYear();
-    let mesSelecionado = hoje.getMonth();
     let modoAtivo = 'contas';
 
     let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
@@ -669,17 +598,15 @@
       }
     }
 
-    // Helper para verificar status de pago com suporte a timestamp
-    function isPago(conta, chaveMes) {
-      if (!conta.pagos || !conta.pagos[chaveMes]) return false;
-      let val = conta.pagos[chaveMes];
+    function isPago(conta) {
+      if (!conta.pago) return false;
+      let val = conta.pago;
       if (typeof val === 'object' && val !== null) {
         return Boolean(val.checked);
       }
       return Boolean(val);
     }
 
-    // Fusão inteligente com timestamp por mês (permite marcar e desmarcar sincronizado)
     function mesclarDadosNuvem(dadosNuvem) {
       if (!dadosNuvem) return;
 
@@ -699,19 +626,15 @@
             existente.valor = cn.valor;
             existente.dia = cn.dia;
             
-            if (cn.pagos) {
-              if (!existente.pagos) existente.pagos = {};
-              for (let k in cn.pagos) {
-                let incoming = cn.pagos[k];
-                let local = existente.pagos[k];
+            if (cn.pago !== undefined) {
+              let incoming = cn.pago;
+              let local = existente.pago;
 
-                let incObj = (typeof incoming === 'object' && incoming !== null) ? incoming : { checked: Boolean(incoming), time: 0 };
-                let locObj = (typeof local === 'object' && local !== null) ? local : { checked: Boolean(local), time: 0 };
+              let incObj = (typeof incoming === 'object' && incoming !== null) ? incoming : { checked: Boolean(incoming), time: 0 };
+              let locObj = (typeof local === 'object' && local !== null) ? local : { checked: Boolean(local), time: 0 };
 
-                // A alteração mais recente vence (permite desmarcar e atualizar corretamente)
-                if (incObj.time >= locObj.time) {
-                  existente.pagos[k] = incObj;
-                }
+              if (incObj.time >= locObj.time) {
+                existente.pago = incObj;
               }
             }
           }
@@ -857,9 +780,16 @@
       renderizarTudo();
     }
 
-    function mudarAno(delta) { anoSelecionado += delta; renderizarContas(); }
-    function selecionarMes(idx) { mesSelecionado = idx; renderizarContas(); }
-    function chaveAnoMesAtual() { return `${anoSelecionado}-${String(mesSelecionado + 1).padStart(2, '0')}`; }
+    function zerarCiclo() {
+      if (confirm('Deseja desmarcar todas as contas para iniciar um novo ciclo?')) {
+        let now = Date.now();
+        estado.contas.forEach(c => {
+          c.pago = { checked: false, time: now };
+        });
+        salvarNoAparelho();
+        mostrarToast('Novo ciclo iniciado');
+      }
+    }
 
     function renderizarTudo() {
       renderizarContas();
@@ -867,32 +797,20 @@
     }
 
     function renderizarContas() {
-      document.getElementById('anoDisplay').textContent = anoSelecionado;
-      const barra = document.getElementById('barraMeses');
-      barra.innerHTML = '';
-      MESES_CURTOS.forEach((nome, idx) => {
-        const btn = document.createElement('button');
-        btn.className = `month-pill ${idx === mesSelecionado ? 'active' : ''}`;
-        btn.textContent = nome;
-        btn.onclick = () => selecionarMes(idx);
-        barra.appendChild(btn);
-      });
-
-      const chaveMes = chaveAnoMesAtual();
       const totalContas = estado.contas.length;
-      let pagasNoMes = 0;
+      let pagasGeral = 0;
       const grid = document.getElementById('gridContas');
       grid.innerHTML = '';
 
       if (totalContas === 0) {
-        document.getElementById('progressoMesDisplay').textContent = 'Nenhuma conta';
+        document.getElementById('progressoGeralDisplay').textContent = 'Nenhuma conta';
         grid.innerHTML = `<div class="empty-state"><p>Nenhuma conta fixa cadastrada.</p><button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()">Adicionar Primeira Conta</button></div>`;
         return;
       }
 
       estado.contas.forEach((conta, index) => {
-        const pago = isPago(conta, chaveMes);
-        if (pago) pagasNoMes++;
+        const pago = isPago(conta);
+        if (pago) pagasGeral++;
 
         const temValor = conta.valor !== null && conta.valor !== '' && !isNaN(conta.valor);
         const valorFormatado = temValor ? Number(conta.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
@@ -905,8 +823,8 @@
             <div class="item-details">
               <div class="item-title ${pago ? 'paid-text' : ''}">${conta.nome}</div>
               <div class="item-meta">
-                <span>Dia ${conta.dia || '--'}</span>
-                <span class="badge ${pago ? 'badge-paid' : 'badge-pending'}">${pago ? 'Pago em ' + MESES_CURTOS[mesSelecionado] : 'Pendente'}</span>
+                <span>Vencimento dia ${conta.dia || '--'}</span>
+                <span class="badge ${pago ? 'badge-paid' : 'badge-pending'}">${pago ? 'Pago' : 'Pendente'}</span>
               </div>
             </div>
           </div>
@@ -920,7 +838,7 @@
         grid.appendChild(card);
       });
 
-      document.getElementById('progressoMesDisplay').textContent = `${pagasNoMes} de ${totalContas} pagas`;
+      document.getElementById('progressoGeralDisplay').textContent = `${pagasGeral} de ${totalContas} pagas`;
     }
 
     function renderizarAssinaturas() {
@@ -973,14 +891,10 @@
       document.getElementById('somaAnualSubs').textContent = somaAnual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    // Alternar com suporte a timestamp para permitir desmarcar perfeitamente nos dois aparelhos
     function alternarPagamentoConta(index) {
-      const chaveMes = chaveAnoMesAtual();
       const conta = estado.contas[index];
-      if (!conta.pagos) conta.pagos = {};
-
-      let atual = isPago(conta, chaveMes);
-      conta.pagos[chaveMes] = {
+      let atual = isPago(conta);
+      conta.pago = {
         checked: !atual,
         time: Date.now()
       };
@@ -1045,7 +959,7 @@
             nome,
             valor: isNaN(valorOpcional) ? null : valorOpcional,
             dia,
-            pagos: {}
+            pago: { checked: false, time: Date.now() }
           });
         }
         estado.contas.sort((a, b) => a.dia - b.dia);
@@ -1092,16 +1006,14 @@
     }
 
     function enviarRelatorioWhatsApp() {
-      const chaveMes = chaveAnoMesAtual();
-      const nomeMesAno = `${MESES_CURTOS[mesSelecionado]} de ${anoSelecionado}`;
-      let texto = `📊 *Relatório da Casa* (${nomeMesAno})\n\n`;
+      let texto = `📊 *Relatório de Contas da Casa*\n\n`;
       
-      texto += `🏠 *Contas da Casa:*\n`;
+      texto += `🏠 *Contas:*\n`;
       if (estado.contas.length === 0) {
         texto += `Nenhuma conta cadastrada.\n`;
       } else {
         estado.contas.forEach(c => {
-          const pago = isPago(c, chaveMes);
+          const pago = isPago(c);
           const status = pago ? '✅ Pago' : '⏳ Pendente';
           const valStr = (c.valor !== null && c.valor !== '' && !isNaN(c.valor)) ? ` - R$ ${Number(c.valor).toFixed(2).replace('.', ',')}` : '';
           texto += `• ${c.nome}${valStr} ➔ *${status}*\n`;
