@@ -95,21 +95,21 @@
     .nav-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .btn-ios {
       height: 36px;
-      padding: 0 14px;
+      padding: 0 12px;
       border-radius: 99px;
-      font-size: 0.84rem;
+      font-size: 0.8rem;
       font-weight: 600;
       border: none;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
       transition: transform 0.12s ease, opacity 0.12s ease, background 0.15s ease;
       white-space: nowrap;
     }
@@ -379,20 +379,9 @@
       font-weight: 600;
     }
 
-    .badge-paid {
-      background: var(--paid-bg);
-      color: var(--paid-text);
-    }
-
-    .badge-pending {
-      background: var(--pending-bg);
-      color: var(--pending-text);
-    }
-
-    .badge-alert {
-      background: var(--alert-bg);
-      color: var(--alert-text);
-    }
+    .badge-paid { background: var(--paid-bg); color: var(--paid-text); }
+    .badge-pending { background: var(--pending-bg); color: var(--pending-text); }
+    .badge-alert { background: var(--alert-bg); color: var(--alert-text); }
 
     .card-right {
       display: flex;
@@ -401,21 +390,9 @@
       flex-shrink: 0;
     }
 
-    .price-block {
-      text-align: right;
-    }
-
-    .price-value {
-      font-size: 0.96rem;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-
-    .price-optional {
-      font-size: 0.76rem;
-      font-weight: 500;
-      color: var(--text-muted);
-    }
+    .price-block { text-align: right; }
+    .price-value { font-size: 0.96rem; font-weight: 700; color: var(--text-primary); }
+    .price-optional { font-size: 0.76rem; font-weight: 500; color: var(--text-muted); }
 
     .edit-btn {
       background: var(--bg-primary);
@@ -438,164 +415,58 @@
       border: 0.5px dashed var(--border-strong);
       color: var(--text-muted);
     }
-
-    .empty-state p {
-      font-size: 0.9rem;
-      margin-bottom: 14px;
-    }
+    .empty-state p { font-size: 0.9rem; margin-bottom: 14px; }
 
     .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      display: none;
-      align-items: flex-end;
-      justify-content: center;
-      z-index: 100;
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      display: none; align-items: flex-end; justify-content: center; z-index: 100;
     }
-
-    .modal-overlay.active {
-      display: flex;
-    }
+    .modal-overlay.active { display: flex; }
 
     .modal-sheet {
-      background: var(--bg-elevated);
-      width: 100%;
-      max-width: 460px;
-      border-top-left-radius: 22px;
-      border-top-right-radius: 22px;
-      padding: 22px 20px 30px;
-      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+      background: var(--bg-elevated); width: 100%; max-width: 460px;
+      border-top-left-radius: 22px; border-top-right-radius: 22px;
+      padding: 22px 20px 30px; box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
       animation: sheetUp 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
-
     @media (min-width: 700px) {
-      .modal-overlay {
-        align-items: center;
-        padding: 20px;
-      }
-      .modal-sheet {
-        border-radius: 22px;
-        padding: 24px;
-      }
+      .modal-overlay { align-items: center; padding: 20px; }
+      .modal-sheet { border-radius: 22px; padding: 24px; }
     }
-
     @keyframes sheetUp {
       from { transform: translateY(40px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
 
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 18px;
-    }
-
-    .modal-header h3 {
-      font-size: 1.1rem;
-      font-weight: 700;
-    }
-
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .modal-header h3 { font-size: 1.1rem; font-weight: 700; }
     .close-btn {
-      background: var(--bg-primary);
-      border: none;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--text-secondary);
-      cursor: pointer;
+      background: var(--bg-primary); border: none; width: 30px; height: 30px;
+      border-radius: 50%; font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); cursor: pointer;
     }
 
-    .form-group {
-      margin-bottom: 14px;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-    }
-
+    .form-group { margin-bottom: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
     input, select {
-      width: 100%;
-      height: 42px;
-      padding: 0 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border-strong);
-      background: var(--bg-primary);
-      font-size: 0.95rem;
-      color: var(--text-primary);
-      outline: none;
+      width: 100%; height: 42px; padding: 0 12px; border-radius: 10px;
+      border: 1px solid var(--border-strong); background: var(--bg-primary); font-size: 0.95rem; color: var(--text-primary); outline: none;
     }
+    input:focus, select:focus { border-color: var(--graphite-dark); background: #FFFFFF; }
 
-    input:focus, select:focus {
-      border-color: var(--graphite-dark);
-      background: #FFFFFF;
-    }
-
-    .modal-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .btn-modal {
-      height: 42px;
-      padding: 0 18px;
-      border-radius: 11px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      flex: 1;
-    }
-
-    .btn-modal-save {
-      background: var(--graphite-dark);
-      color: #FFFFFF;
-    }
-
-    .btn-modal-delete {
-      background: #FFF1F0;
-      color: var(--danger-text);
-      flex: 0 0 auto;
-    }
+    .modal-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 20px; }
+    .btn-modal { height: 42px; padding: 0 18px; border-radius: 11px; font-size: 0.9rem; font-weight: 600; border: none; cursor: pointer; flex: 1; }
+    .btn-modal-save { background: var(--graphite-dark); color: #FFFFFF; }
+    .btn-modal-delete { background: #FFF1F0; color: var(--danger-text); flex: 0 0 auto; }
 
     #toast {
-      position: fixed;
-      top: 16px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-80px);
-      background: var(--graphite-dark);
-      color: #FFFFFF;
-      padding: 10px 18px;
-      border-radius: 99px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.18);
-      transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-      z-index: 300;
-      white-space: nowrap;
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-80px);
+      background: var(--graphite-dark); color: #FFFFFF; padding: 10px 18px; border-radius: 99px;
+      font-size: 0.82rem; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+      transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 300; white-space: nowrap;
     }
-
-    #toast.show {
-      transform: translateX(-50%) translateY(0);
-    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -610,12 +481,9 @@
           <h1 id="mainTitle">Contas da Casa</h1>
         </div>
         <div class="nav-actions">
-          <button class="btn-ios btn-ios-secondary" onclick="enviarRelatorioWhatsApp()" title="Enviar relatório para Rayssa">
-            <span>📄 Relatório</span>
-          </button>
-          <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()">
-            <span id="btnNovoTexto">+ Nova Conta</span>
-          </button>
+          <button class="btn-ios btn-ios-secondary" onclick="abrirConfigSync()" title="Configurar Sincronização Automática">⚙️ Sync</button>
+          <button class="btn-ios btn-ios-secondary" onclick="enviarRelatorioWhatsApp()" title="Enviar relatório para Rayssa">📄 Relatório</button>
+          <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()"><span id="btnNovoTexto">+ Nova Conta</span></button>
         </div>
       </div>
 
@@ -661,6 +529,7 @@
     </section>
   </main>
 
+  <!-- Modal Adicionar / Editar -->
   <div id="modalForm" class="modal-overlay" onclick="fecharModalFora(event)">
     <div class="modal-sheet">
       <div class="modal-header">
@@ -701,8 +570,33 @@
     </div>
   </div>
 
+  <!-- Modal Configuração Gist Sync -->
+  <div id="modalSync" class="modal-overlay" onclick="if(event.target.id==='modalSync') fecharConfigSync()">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3>Sincronização Automática (Gist)</h3>
+        <button class="close-btn" onclick="fecharConfigSync()">✕</button>
+      </div>
+      <div class="form-group">
+        <label>GitHub Personal Access Token (ghp_...)</label>
+        <input type="password" id="inputToken" placeholder="Cole seu token aqui">
+      </div>
+      <div class="form-group">
+        <label>ID do Gist (Opcional - deixe vazio para criar um novo)</label>
+        <input type="text" id="inputGistId" placeholder="Ex: a1b2c3d4e5...">
+      </div>
+      <p style="font-size:0.76rem; color:var(--text-secondary); margin-bottom:14px;">
+        Insira o mesmo token e ID de Gist no seu iPhone e no iPad para que eles sincronizem automaticamente ao abrir o app com internet.
+      </p>
+      <div class="modal-footer">
+        <button class="btn-modal btn-modal-save" onclick="salvarConfigSync()">Salvar e Sincronizar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const STORAGE_KEY = 'controle_ios_titanium_v1';
+    const SYNC_CONFIG_KEY = 'controle_sync_config_v1';
     const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
     const hoje = new Date();
@@ -715,14 +609,103 @@
       assinaturas: []
     };
 
+    let syncConfig = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || {
+      token: '',
+      gistId: ''
+    };
+
     function salvarNoAparelho() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
       renderizarTudo();
+      sincronizarComNuvem(); // Envia automaticamente em background se configurado
+    }
+
+    // Gist Sync Automático
+    async function sincronizarComNuvem() {
+      if (!syncConfig.token) return;
+      
+      try {
+        const headers = {
+          'Authorization': `token ${syncConfig.token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        };
+
+        // Se já tem Gist ID, tenta baixar a versão mais recente primeiro
+        if (syncConfig.gistId) {
+          const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, { headers });
+          if (res.ok) {
+            const data = await res.json();
+            const arquivo = data.files['dados_controle.json'];
+            if (arquivo) {
+              const dadosNuvem = JSON.parse(arquivo.content);
+              // Lógica simples: se nuvem for mais recente ou diferente, atualiza local
+              if (JSON.stringify(dadosNuvem) !== JSON.stringify(estado)) {
+                // Aqui podemos optar por mesclar ou atualizar. Para simplicidade, atualizamos se houver alteração externa
+                estado = dadosNuvem;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+                renderizarTudo();
+              }
+            }
+          }
+        }
+
+        // Salva estado atual na nuvem
+        const body = {
+          description: "Sincronização Automática Gestor Casa & Assinaturas",
+          files: {
+            "dados_controle.json": {
+              content: JSON.stringify(estado, null, 2)
+            }
+          }
+        };
+
+        let url = 'https://api.github.com/gists';
+        let method = 'POST';
+
+        if (syncConfig.gistId) {
+          url = `https://api.github.com/gists/${syncConfig.gistId}`;
+          method = 'PATCH';
+        }
+
+        const resGist = await fetch(url, {
+          method: method,
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (resGist.ok) {
+          const dataGist = await resGist.json();
+          if (!syncConfig.gistId) {
+            syncConfig.gistId = dataGist.id;
+            localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
+          }
+        }
+      } catch (e) {
+        console.log('Modo offline ou erro de sync:', e);
+      }
+    }
+
+    // Config Sync Modals
+    function abrirConfigSync() {
+      document.getElementById('inputToken').value = syncConfig.token || '';
+      document.getElementById('inputGistId').value = syncConfig.gistId || '';
+      document.getElementById('modalSync').classList.add('active');
+    }
+    function fecharConfigSync() {
+      document.getElementById('modalSync').classList.remove('active');
+    }
+    function salvarConfigSync() {
+      syncConfig.token = document.getElementById('inputToken').value.trim();
+      syncConfig.gistId = document.getElementById('inputGistId').value.trim();
+      localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
+      fecharConfigSync();
+      mostrarToast('Sync configurado! Sincronizando...');
+      sincronizarComNuvem();
     }
 
     function alternarModo(novoModo) {
       modoAtivo = novoModo;
-      const isContas = novoModo === 'contas';
+      const isContas = modoAtivo === 'contas';
 
       document.getElementById('segContas').classList.toggle('active', isContas);
       document.getElementById('segAssinaturas').classList.toggle('active', !isContas);
@@ -736,19 +719,9 @@
       renderizarTudo();
     }
 
-    function mudarAno(delta) {
-      anoSelecionado += delta;
-      renderizarContas();
-    }
-
-    function selecionarMes(indiceMes) {
-      mesSelecionado = indiceMes;
-      renderizarContas();
-    }
-
-    function chaveAnoMesAtual() {
-      return `${anoSelecionado}-${String(mesSelecionado + 1).padStart(2, '0')}`;
-    }
+    function mudarAno(delta) { anoSelecionado += delta; renderizarContas(); }
+    function selecionarMes(idx) { mesSelecionado = idx; renderizarContas(); }
+    function chaveAnoMesAtual() { return `${anoSelecionado}-${String(mesSelecionado + 1).padStart(2, '0')}`; }
 
     function renderizarTudo() {
       renderizarContas();
@@ -757,7 +730,6 @@
 
     function renderizarContas() {
       document.getElementById('anoDisplay').textContent = anoSelecionado;
-
       const barra = document.getElementById('barraMeses');
       barra.innerHTML = '';
       MESES_CURTOS.forEach((nome, idx) => {
@@ -771,18 +743,12 @@
       const chaveMes = chaveAnoMesAtual();
       const totalContas = estado.contas.length;
       let pagasNoMes = 0;
-
       const grid = document.getElementById('gridContas');
       grid.innerHTML = '';
 
       if (totalContas === 0) {
         document.getElementById('progressoMesDisplay').textContent = 'Nenhuma conta';
-        grid.innerHTML = `
-          <div class="empty-state">
-            <p>Nenhuma conta fixa cadastrada.</p>
-            <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()">Adicionar Primeira Conta</button>
-          </div>
-        `;
+        grid.innerHTML = `<div class="empty-state"><p>Nenhuma conta fixa cadastrada.</p><button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()">Adicionar Primeira Conta</button></div>`;
         return;
       }
 
@@ -791,9 +757,7 @@
         if (pago) pagasNoMes++;
 
         const temValor = conta.valor !== null && conta.valor !== '' && !isNaN(conta.valor);
-        const valorFormatado = temValor
-          ? Number(conta.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-          : '';
+        const valorFormatado = temValor ? Number(conta.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
 
         const card = document.createElement('div');
         card.className = 'ios-card';
@@ -804,9 +768,7 @@
               <div class="item-title ${pago ? 'paid-text' : ''}">${conta.nome}</div>
               <div class="item-meta">
                 <span>Dia ${conta.dia || '--'}</span>
-                <span class="badge ${pago ? 'badge-paid' : 'badge-pending'}">
-                  ${pago ? 'Pago em ' + MESES_CURTOS[mesSelecionado] : 'Pendente'}
-                </span>
+                <span class="badge ${pago ? 'badge-paid' : 'badge-pending'}">${pago ? 'Pago em ' + MESES_CURTOS[mesSelecionado] : 'Pendente'}</span>
               </div>
             </div>
           </div>
@@ -826,19 +788,13 @@
     function renderizarAssinaturas() {
       const grid = document.getElementById('gridAssinaturas');
       grid.innerHTML = '';
-
       let somaMensal = 0;
       const diaHoje = hoje.getDate();
 
       if (estado.assinaturas.length === 0) {
         document.getElementById('somaMensalSubs').textContent = 'R$ 0,00';
         document.getElementById('somaAnualSubs').textContent = 'R$ 0,00';
-        grid.innerHTML = `
-          <div class="empty-state">
-            <p>Nenhuma assinatura cadastrada.</p>
-            <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()">Adicionar Assinatura</button>
-          </div>
-        `;
+        grid.innerHTML = `<div class="empty-state"><p>Nenhuma assinatura cadastrada.</p><button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()">Adicionar Assinatura</button></div>`;
         return;
       }
 
@@ -849,7 +805,6 @@
         let diasParaRenovar = sub.dia - diaHoje;
         if (diasParaRenovar < 0) diasParaRenovar += 30;
         const alertaProximo = diasParaRenovar <= 5;
-
         const valorExibido = valorNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const sufixoCiclo = sub.ciclo === 'anual' ? '/ano' : '/mês';
 
@@ -921,13 +876,8 @@
       document.getElementById('modalForm').classList.add('active');
     }
 
-    function fecharModal() {
-      document.getElementById('modalForm').classList.remove('active');
-    }
-
-    function fecharModalFora(e) {
-      if (e.target.id === 'modalForm') fecharModal();
-    }
+    function fecharModal() { document.getElementById('modalForm').classList.remove('active'); }
+    function fecharModalFora(e) { if (e.target.id === 'modalForm') fecharModal(); }
 
     function salvarRegistro() {
       const index = parseInt(document.getElementById('editIndex').value, 10);
@@ -936,11 +886,7 @@
       const diaRaw = parseInt(document.getElementById('inputDia').value, 10);
       const ciclo = document.getElementById('inputCiclo').value;
 
-      if (!nome) {
-        mostrarToast('Digite um nome válido');
-        return;
-      }
-
+      if (!nome) { mostrarToast('Digite um nome válido'); return; }
       const dia = (!isNaN(diaRaw) && diaRaw >= 1 && diaRaw <= 31) ? diaRaw : 10;
 
       if (modoAtivo === 'contas') {
@@ -955,10 +901,7 @@
         estado.contas.sort((a, b) => a.dia - b.dia);
       } else {
         const valorAssinatura = parseFloat(valorRaw);
-        if (isNaN(valorAssinatura) || valorAssinatura <= 0) {
-          mostrarToast('Informe o valor da assinatura');
-          return;
-        }
+        if (isNaN(valorAssinatura) || valorAssinatura <= 0) { mostrarToast('Informe o valor da assinatura'); return; }
         if (index >= 0) {
           estado.assinaturas[index].nome = nome;
           estado.assinaturas[index].valor = valorAssinatura;
@@ -988,7 +931,6 @@
     function enviarRelatorioWhatsApp() {
       const chaveMes = chaveAnoMesAtual();
       const nomeMesAno = `${MESES_CURTOS[mesSelecionado]} de ${anoSelecionado}`;
-      
       let texto = `📊 *Relatório da Casa* (${nomeMesAno})\n\n`;
       
       texto += `🏠 *Contas da Casa:*\n`;
@@ -1027,7 +969,11 @@
       setTimeout(() => toast.classList.remove('show'), 2600);
     }
 
+    // Inicialização e tentativa de puxar dados da nuvem ao abrir
     renderizarTudo();
+    if (syncConfig.token) {
+      sincronizarComNuvem();
+    }
   </script>
 </body>
 </html>
