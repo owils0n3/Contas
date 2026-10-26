@@ -481,7 +481,8 @@
           <h1 id="mainTitle">Contas da Casa</h1>
         </div>
         <div class="nav-actions">
-          <button class="btn-ios btn-ios-secondary" onclick="abrirConfigSync()" title="Configurar Sincronização Automática">⚙️ Sync</button>
+          <button class="btn-ios btn-ios-secondary" onclick="sincronizarManual()" title="Sincronizar com a nuvem">🔄 Sincronizar</button>
+          <button class="btn-ios btn-ios-secondary" onclick="abrirConfigSync()" title="Configurar Token">⚙️ Token</button>
           <button class="btn-ios btn-ios-secondary" onclick="enviarRelatorioWhatsApp()" title="Enviar relatório para Rayssa">📄 Relatório</button>
           <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()"><span id="btnNovoTexto">+ Nova Conta</span></button>
         </div>
@@ -574,7 +575,7 @@
   <div id="modalSync" class="modal-overlay" onclick="if(event.target.id==='modalSync') fecharConfigSync()">
     <div class="modal-sheet">
       <div class="modal-header">
-        <h3>Sincronização Automática (Gist)</h3>
+        <h3>Configurar Token do GitHub</h3>
         <button class="close-btn" onclick="fecharConfigSync()">✕</button>
       </div>
       <div class="form-group">
@@ -582,17 +583,17 @@
         <input type="password" id="inputToken" placeholder="Cole seu token aqui">
       </div>
       <p style="font-size:0.76rem; color:var(--text-secondary); margin-bottom:14px;">
-        Cole o mesmo token do GitHub tanto no iPhone quanto no iPad. O app reconhecerá o arquivo na nuvem automaticamente.
+        Cole o mesmo token do GitHub tanto no iPhone quanto no iPad.
       </p>
       <div class="modal-footer">
-        <button class="btn-modal btn-modal-save" onclick="salvarConfigSync()">Salvar e Sincronizar</button>
+        <button class="btn-modal btn-modal-save" onclick="salvarConfigSync()">Salvar Token</button>
       </div>
     </div>
   </div>
 
   <script>
-    const STORAGE_KEY = 'controle_ios_titanium_v1';
-    const SYNC_CONFIG_KEY = 'controle_sync_config_v1';
+    const STORAGE_KEY = 'controle_ios_titanium_v2';
+    const SYNC_CONFIG_KEY = 'controle_sync_config_v2';
     const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
     const hoje = new Date();
@@ -602,18 +603,24 @@
 
     let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
       contas: [],
-      assinaturas: []
+      assinaturas: [],
+      deletedIds: []
     };
+
+    // Garante IDs em itens legados que não possuíam
+    if (estado.contas) estado.contas.forEach(c => { if (!c.id) c.id = 'acc_' + Math.random().toString(36).substr(2, 9); });
+    if (estado.assinaturas) estado.assinaturas.forEach(s => { if (!s.id) s.id = 'sub_' + Math.random().toString(36).substr(2, 9); });
+    if (!estado.deletedIds) estado.deletedIds = [];
 
     let syncConfig = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || {
       token: '',
       gistId: ''
     };
 
-    // Renderiza o que está salvo localmente imediatamente para nunca sumir
+    // 1. Renderiza imediatamente o que está no aparelho
     renderizarTudo();
 
-    // Ao carregar, busca e funde os dados da nuvem em segundo plano
+    // 2. Tenta baixar e sincronizar da nuvem automaticamente ao abrir
     if (syncConfig.token) {
       baixarDaNuvem();
     }
@@ -624,7 +631,6 @@
       enviarParaNuvem();
     }
 
-    // Procura o Gist automaticamente na conta do GitHub usando apenas o token
     async function descobrirGistAutomaticamente() {
       if (!syncConfig.token) return;
       try {
@@ -647,39 +653,59 @@
       }
     }
 
-    // Faz a fusão inteligente (Merge) para não perder dados locais
+    // Fusão inteligente completa (criação, atualização de valores, pagamento e exclusão)
     function mesclarDadosNuvem(dadosNuvem) {
       if (!dadosNuvem) return;
 
-      // Mescla Contas
+      // Une as listas de IDs deletados dos dois aparelhos
+      let allDeleted = new Set([...(estado.deletedIds || []), ...(dadosNuvem.deletedIds || [])]);
+      estado.deletedIds = Array.from(allDeleted);
+
+      // Sincroniza Contas
       if (dadosNuvem.contas) {
         dadosNuvem.contas.forEach(cn => {
-          let existente = estado.contas.find(c => c.nome.toLowerCase() === cn.nome.toLowerCase());
+          if (!cn.id) cn.id = 'acc_' + Math.random().toString(36).substr(2, 9);
+          if (allDeleted.has(cn.id)) return; // Ignora se foi excluído em algum lugar
+
+          let existente = estado.contas.find(c => c.id === cn.id);
           if (!existente) {
             estado.contas.push(cn);
           } else {
+            // Atualiza dados e funde status de pagos por mês
+            existente.nome = cn.nome;
+            existente.valor = cn.valor;
+            existente.dia = cn.dia;
             if (cn.pagos) {
               if (!existente.pagos) existente.pagos = {};
               for (let k in cn.pagos) {
                 if (cn.pagos[k]) existente.pagos[k] = true;
               }
             }
-            if (cn.valor !== null && cn.valor !== undefined && !existente.valor) {
-              existente.valor = cn.valor;
-            }
           }
         });
       }
+      // Remove contas locais que foram deletadas na nuvem
+      estado.contas = estado.contas.filter(c => !allDeleted.has(c.id));
 
-      // Mescla Assinaturas
+      // Sincroniza Assinaturas
       if (dadosNuvem.assinaturas) {
         dadosNuvem.assinaturas.forEach(sn => {
-          let existente = estado.assinaturas.find(s => s.nome.toLowerCase() === sn.nome.toLowerCase());
+          if (!sn.id) sn.id = 'sub_' + Math.random().toString(36).substr(2, 9);
+          if (allDeleted.has(sn.id)) return;
+
+          let existente = estado.assinaturas.find(s => s.id === sn.id);
           if (!existente) {
             estado.assinaturas.push(sn);
+          } else {
+            existente.nome = sn.nome;
+            existente.valor = sn.valor;
+            existente.dia = sn.dia;
+            existente.ciclo = sn.ciclo;
           }
         });
       }
+      // Remove assinaturas locais que foram deletadas na nuvem
+      estado.assinaturas = estado.assinaturas.filter(s => !allDeleted.has(s.id));
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
       renderizarTudo();
@@ -758,6 +784,17 @@
       }
     }
 
+    async function sincronizarManual() {
+      if (!syncConfig.token) {
+        abrirConfigSync();
+        return;
+      }
+      mostrarToast('Sincronizando com a nuvem...');
+      await baixarDaNuvem();
+      await enviarParaNuvem();
+      mostrarToast('Tudo atualizado!');
+    }
+
     function abrirConfigSync() {
       document.getElementById('inputToken').value = syncConfig.token || '';
       document.getElementById('modalSync').classList.add('active');
@@ -767,11 +804,11 @@
     }
     function salvarConfigSync() {
       syncConfig.token = document.getElementById('inputToken').value.trim();
-      syncConfig.gistId = ''; // Limpa para forçar a descoberta automática
+      syncConfig.gistId = ''; 
       localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
       fecharConfigSync();
-      mostrarToast('Sync configurado! Sincronizando...');
-      baixarDaNuvem().then(() => enviarParaNuvem());
+      mostrarToast('Token salvo! Baixando dados...');
+      baixarDaNuvem();
     }
 
     function alternarModo(novoModo) {
@@ -967,7 +1004,13 @@
           estado.contas[index].valor = isNaN(valorOpcional) ? null : valorOpcional;
           estado.contas[index].dia = dia;
         } else {
-          estado.contas.push({ nome, valor: isNaN(valorOpcional) ? null : valorOpcional, dia, pagos: {} });
+          estado.contas.push({
+            id: 'acc_' + Math.random().toString(36).substr(2, 9),
+            nome,
+            valor: isNaN(valorOpcional) ? null : valorOpcional,
+            dia,
+            pagos: {}
+          });
         }
         estado.contas.sort((a, b) => a.dia - b.dia);
       } else {
@@ -979,7 +1022,13 @@
           estado.assinaturas[index].dia = dia;
           estado.assinaturas[index].ciclo = ciclo;
         } else {
-          estado.assinaturas.push({ nome, valor: valorAssinatura, dia, ciclo });
+          estado.assinaturas.push({
+            id: 'sub_' + Math.random().toString(36).substr(2, 9),
+            nome,
+            valor: valorAssinatura,
+            dia,
+            ciclo
+          });
         }
         estado.assinaturas.sort((a, b) => a.dia - b.dia);
       }
@@ -993,6 +1042,14 @@
       const index = parseInt(document.getElementById('editIndex').value, 10);
       if (index < 0) return;
       const lista = modoAtivo === 'contas' ? estado.contas : estado.assinaturas;
+      const itemRemovido = lista[index];
+      
+      // Adiciona o ID à lixeira para propagar a exclusão para o outro aparelho
+      if (itemRemovido && itemRemovido.id) {
+        if (!estado.deletedIds) estado.deletedIds = [];
+        estado.deletedIds.push(itemRemovido.id);
+      }
+
       lista.splice(index, 1);
       salvarNoAparelho();
       fecharModal();
