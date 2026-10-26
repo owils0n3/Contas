@@ -617,39 +617,41 @@
     function salvarNoAparelho() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
       renderizarTudo();
-      sincronizarComNuvem(); // Envia automaticamente em background se configurado
+      enviarParaNuvem(); // Envia para o Gist sem conflito de download
     }
 
-    // Gist Sync Automático
-    async function sincronizarComNuvem() {
-      if (!syncConfig.token) return;
-      
+    // Baixa dados da nuvem (usado apenas ao abrir o app)
+    async function baixarDaNuvem() {
+      if (!syncConfig.token || !syncConfig.gistId) return;
       try {
         const headers = {
           'Authorization': `token ${syncConfig.token}`,
           'Accept': 'application/vnd.github.v3+json'
         };
-
-        // Se já tem Gist ID, tenta baixar a versão mais recente primeiro
-        if (syncConfig.gistId) {
-          const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, { headers });
-          if (res.ok) {
-            const data = await res.json();
-            const arquivo = data.files['dados_controle.json'];
-            if (arquivo) {
-              const dadosNuvem = JSON.parse(arquivo.content);
-              // Lógica simples: se nuvem for mais recente ou diferente, atualiza local
-              if (JSON.stringify(dadosNuvem) !== JSON.stringify(estado)) {
-                // Aqui podemos optar por mesclar ou atualizar. Para simplicidade, atualizamos se houver alteração externa
-                estado = dadosNuvem;
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
-                renderizarTudo();
-              }
-            }
+        const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          const arquivo = data.files['dados_controle.json'];
+          if (arquivo) {
+            estado = JSON.parse(arquivo.content);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+            renderizarTudo();
           }
         }
+      } catch (e) {
+        console.log('Modo offline:', e);
+      }
+    }
 
-        // Salva estado atual na nuvem
+    // Envia dados para a nuvem (apenas upload)
+    async function enviarParaNuvem() {
+      if (!syncConfig.token) return;
+      try {
+        const headers = {
+          'Authorization': `token ${syncConfig.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        };
         const body = {
           description: "Sincronização Automática Gestor Casa & Assinaturas",
           files: {
@@ -661,7 +663,6 @@
 
         let url = 'https://api.github.com/gists';
         let method = 'POST';
-
         if (syncConfig.gistId) {
           url = `https://api.github.com/gists/${syncConfig.gistId}`;
           method = 'PATCH';
@@ -669,7 +670,7 @@
 
         const resGist = await fetch(url, {
           method: method,
-          headers: { ...headers, 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify(body)
         });
 
@@ -681,11 +682,10 @@
           }
         }
       } catch (e) {
-        console.log('Modo offline ou erro de sync:', e);
+        console.log('Erro ao enviar para nuvem:', e);
       }
     }
 
-    // Config Sync Modals
     function abrirConfigSync() {
       document.getElementById('inputToken').value = syncConfig.token || '';
       document.getElementById('inputGistId').value = syncConfig.gistId || '';
@@ -699,8 +699,8 @@
       syncConfig.gistId = document.getElementById('inputGistId').value.trim();
       localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
       fecharConfigSync();
-      mostrarToast('Sync configurado! Sincronizando...');
-      sincronizarComNuvem();
+      mostrarToast('Sync configurado! Enviando dados...');
+      enviarParaNuvem();
     }
 
     function alternarModo(novoModo) {
@@ -969,10 +969,10 @@
       setTimeout(() => toast.classList.remove('show'), 2600);
     }
 
-    // Inicialização e tentativa de puxar dados da nuvem ao abrir
+    // Inicialização: Renderiza local e baixa da nuvem se configurado
     renderizarTudo();
-    if (syncConfig.token) {
-      sincronizarComNuvem();
+    if (syncConfig.token && syncConfig.gistId) {
+      baixarDaNuvem();
     }
   </script>
 </body>
