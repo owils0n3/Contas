@@ -211,6 +211,7 @@
       color: #FFFFFF;
       border-radius: var(--radius-lg);
       padding: 20px 22px;
+      margin-top: 18px;
       margin-bottom: 18px;
       display: flex;
       flex-wrap: wrap;
@@ -464,6 +465,14 @@
       </div>
 
       <div class="cards-grid" id="gridContas"></div>
+
+      <!-- Card de Valor Total das Contas com Valor Definido -->
+      <div class="subs-summary-card">
+        <div class="summary-metric">
+          <small>Total das Contas com Valor Definido</small>
+          <h2 id="somaTotalContas">R$ 0,00</h2>
+        </div>
+      </div>
     </section>
 
     <section id="viewAssinaturas" style="display: none;">
@@ -546,8 +555,8 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'controle_ios_titanium_v5';
-    const SYNC_CONFIG_KEY = 'controle_sync_config_v5';
+    const STORAGE_KEY = 'controle_ios_titanium_v6';
+    const SYNC_CONFIG_KEY = 'controle_sync_config_v6';
 
     let modoAtivo = 'contas';
 
@@ -616,7 +625,6 @@
       estado.deletedIds = Array.from(allDeleted);
 
       if (dadosNuvem.contas) {
-        // Mantém a ordem da nuvem se houver dados novos, ou faz o merge mantendo IDs
         let novaListaContas = [];
         dadosNuvem.contas.forEach(cn => {
           if (!cn.id) cn.id = 'acc_' + Math.random().toString(36).substr(2, 9);
@@ -641,7 +649,6 @@
             novaListaContas.push(cn);
           }
         });
-        // Adiciona locais que não estavam na nuvem
         estado.contas.forEach(c => {
           if (!allDeleted.has(c.id) && !novaListaContas.some(nc => nc.id === c.id)) {
             novaListaContas.push(c);
@@ -816,11 +823,13 @@
     function renderizarContas() {
       const totalContas = estado.contas.length;
       let pagasGeral = 0;
+      let somaTotalContas = 0;
       const grid = document.getElementById('gridContas');
       grid.innerHTML = '';
 
       if (totalContas === 0) {
         document.getElementById('progressoGeralDisplay').textContent = 'Nenhuma conta';
+        document.getElementById('somaTotalContas').textContent = 'R$ 0,00';
         grid.innerHTML = `<div class="empty-state"><p>Nenhuma conta fixa cadastrada.</p><button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()">Adicionar Primeira Conta</button></div>`;
         return;
       }
@@ -830,6 +839,10 @@
         if (pago) pagasGeral++;
 
         const temValor = conta.valor !== null && conta.valor !== '' && !isNaN(conta.valor);
+        if (temValor) {
+          somaTotalContas += Number(conta.valor);
+        }
+
         const valorFormatado = temValor ? Number(conta.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
 
         const card = document.createElement('div');
@@ -856,6 +869,7 @@
       });
 
       document.getElementById('progressoGeralDisplay').textContent = `${pagasGeral} de ${totalContas} pagas`;
+      document.getElementById('somaTotalContas').textContent = somaTotalContas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
     function renderizarAssinaturas() {
@@ -927,7 +941,6 @@
       document.getElementById('labelDia').textContent = isContas ? 'Dia do Vencimento' : 'Dia da Cobrança';
       document.getElementById('grupoCiclo').style.display = isContas ? 'none' : 'block';
       
-      // Botões específicos de edição (Excluir e Ordenar)
       document.getElementById('btnExcluir').style.display = isEdicao ? 'inline-block' : 'none';
       document.getElementById('btnSubir').style.display = isEdicao ? 'inline-block' : 'none';
       document.getElementById('btnDescer').style.display = isEdicao ? 'inline-block' : 'none';
@@ -963,14 +976,12 @@
       const lista = modoAtivo === 'contas' ? estado.contas : estado.assinaturas;
       const novoIndex = index + direcao;
 
-      if (novoIndex < 0 || novoIndex >= lista.length) return; // Limites da lista
+      if (novoIndex < 0 || novoIndex >= lista.length) return;
 
-      // Troca os itens de lugar na matriz
       const temp = lista[index];
       lista[index] = lista[novoIndex];
       lista[novoIndex] = temp;
 
-      // Atualiza o índice no modal para continuar acompanhando o item
       document.getElementById('editIndex').value = novoIndex;
 
       salvarNoAparelho();
@@ -1050,12 +1061,18 @@
       if (estado.contas.length === 0) {
         texto += `Nenhuma conta cadastrada.\n`;
       } else {
+        let somaTotalContas = 0;
         estado.contas.forEach(c => {
           const pago = isPago(c);
           const status = pago ? '✅ Pago' : '⏳ Pendente';
-          const valStr = (c.valor !== null && c.valor !== '' && !isNaN(c.valor)) ? ` - R$ ${Number(c.valor).toFixed(2).replace('.', ',')}` : '';
+          const temVal = c.valor !== null && c.valor !== '' && !isNaN(c.valor);
+          if (temVal) somaTotalContas += Number(c.valor);
+          const valStr = temVal ? ` - R$ ${Number(c.valor).toFixed(2).replace('.', ',')}` : '';
           texto += `• ${c.nome}${valStr} ➔ *${status}*\n`;
         });
+        if (somaTotalContas > 0) {
+          texto += `\n*Total Contas com Valor:* R$ ${somaTotalContas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+        }
       }
 
       texto += `\n🔄 *Assinaturas:*\n`;
@@ -1068,7 +1085,7 @@
           somaSubs += (s.ciclo === 'anual' ? valNum / 12 : valNum);
           texto += `• ${s.nome}: R$ ${valNum.toFixed(2).replace('.', ',')} (${s.ciclo})\n`;
         });
-        texto += `\n*Total Mensal:* R$ ${somaSubs.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        texto += `\n*Total Mensal Assinaturas:* R$ ${somaSubs.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       }
 
       const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(texto)}`;
