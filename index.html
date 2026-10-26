@@ -75,6 +75,7 @@
       align-items: center;
       margin-bottom: 14px;
       gap: 12px;
+      flex-wrap: wrap;
     }
 
     .brand-title span {
@@ -96,6 +97,24 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 680px) {
+      .nav-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .nav-actions {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 6px;
+      }
+      .btn-ios {
+        padding: 0 10px;
+        font-size: 0.78rem;
+        height: 34px;
+      }
     }
 
     .btn-ios {
@@ -592,8 +611,8 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'controle_ios_titanium_v2';
-    const SYNC_CONFIG_KEY = 'controle_sync_config_v2';
+    const STORAGE_KEY = 'controle_ios_titanium_v3';
+    const SYNC_CONFIG_KEY = 'controle_sync_config_v3';
     const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
     const hoje = new Date();
@@ -607,7 +626,6 @@
       deletedIds: []
     };
 
-    // Garante IDs em itens legados que não possuíam
     if (estado.contas) estado.contas.forEach(c => { if (!c.id) c.id = 'acc_' + Math.random().toString(36).substr(2, 9); });
     if (estado.assinaturas) estado.assinaturas.forEach(s => { if (!s.id) s.id = 'sub_' + Math.random().toString(36).substr(2, 9); });
     if (!estado.deletedIds) estado.deletedIds = [];
@@ -617,10 +635,8 @@
       gistId: ''
     };
 
-    // 1. Renderiza imediatamente o que está no aparelho
     renderizarTudo();
 
-    // 2. Tenta baixar e sincronizar da nuvem automaticamente ao abrir
     if (syncConfig.token) {
       baixarDaNuvem();
     }
@@ -653,41 +669,56 @@
       }
     }
 
-    // Fusão inteligente completa (criação, atualização de valores, pagamento e exclusão)
+    // Helper para verificar status de pago com suporte a timestamp
+    function isPago(conta, chaveMes) {
+      if (!conta.pagos || !conta.pagos[chaveMes]) return false;
+      let val = conta.pagos[chaveMes];
+      if (typeof val === 'object' && val !== null) {
+        return Boolean(val.checked);
+      }
+      return Boolean(val);
+    }
+
+    // Fusão inteligente com timestamp por mês (permite marcar e desmarcar sincronizado)
     function mesclarDadosNuvem(dadosNuvem) {
       if (!dadosNuvem) return;
 
-      // Une as listas de IDs deletados dos dois aparelhos
       let allDeleted = new Set([...(estado.deletedIds || []), ...(dadosNuvem.deletedIds || [])]);
       estado.deletedIds = Array.from(allDeleted);
 
-      // Sincroniza Contas
       if (dadosNuvem.contas) {
         dadosNuvem.contas.forEach(cn => {
           if (!cn.id) cn.id = 'acc_' + Math.random().toString(36).substr(2, 9);
-          if (allDeleted.has(cn.id)) return; // Ignora se foi excluído em algum lugar
+          if (allDeleted.has(cn.id)) return;
 
           let existente = estado.contas.find(c => c.id === cn.id);
           if (!existente) {
             estado.contas.push(cn);
           } else {
-            // Atualiza dados e funde status de pagos por mês
             existente.nome = cn.nome;
             existente.valor = cn.valor;
             existente.dia = cn.dia;
+            
             if (cn.pagos) {
               if (!existente.pagos) existente.pagos = {};
               for (let k in cn.pagos) {
-                if (cn.pagos[k]) existente.pagos[k] = true;
+                let incoming = cn.pagos[k];
+                let local = existente.pagos[k];
+
+                let incObj = (typeof incoming === 'object' && incoming !== null) ? incoming : { checked: Boolean(incoming), time: 0 };
+                let locObj = (typeof local === 'object' && local !== null) ? local : { checked: Boolean(local), time: 0 };
+
+                // A alteração mais recente vence (permite desmarcar e atualizar corretamente)
+                if (incObj.time >= locObj.time) {
+                  existente.pagos[k] = incObj;
+                }
               }
             }
           }
         });
       }
-      // Remove contas locais que foram deletadas na nuvem
       estado.contas = estado.contas.filter(c => !allDeleted.has(c.id));
 
-      // Sincroniza Assinaturas
       if (dadosNuvem.assinaturas) {
         dadosNuvem.assinaturas.forEach(sn => {
           if (!sn.id) sn.id = 'sub_' + Math.random().toString(36).substr(2, 9);
@@ -704,7 +735,6 @@
           }
         });
       }
-      // Remove assinaturas locais que foram deletadas na nuvem
       estado.assinaturas = estado.assinaturas.filter(s => !allDeleted.has(s.id));
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
@@ -861,7 +891,7 @@
       }
 
       estado.contas.forEach((conta, index) => {
-        const pago = Boolean(conta.pagos && conta.pagos[chaveMes]);
+        const pago = isPago(conta, chaveMes);
         if (pago) pagasNoMes++;
 
         const temValor = conta.valor !== null && conta.valor !== '' && !isNaN(conta.valor);
@@ -943,11 +973,17 @@
       document.getElementById('somaAnualSubs').textContent = somaAnual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
+    // Alternar com suporte a timestamp para permitir desmarcar perfeitamente nos dois aparelhos
     function alternarPagamentoConta(index) {
       const chaveMes = chaveAnoMesAtual();
       const conta = estado.contas[index];
       if (!conta.pagos) conta.pagos = {};
-      conta.pagos[chaveMes] = !conta.pagos[chaveMes];
+
+      let atual = isPago(conta, chaveMes);
+      conta.pagos[chaveMes] = {
+        checked: !atual,
+        time: Date.now()
+      };
       salvarNoAparelho();
     }
 
@@ -1044,7 +1080,6 @@
       const lista = modoAtivo === 'contas' ? estado.contas : estado.assinaturas;
       const itemRemovido = lista[index];
       
-      // Adiciona o ID à lixeira para propagar a exclusão para o outro aparelho
       if (itemRemovido && itemRemovido.id) {
         if (!estado.deletedIds) estado.deletedIds = [];
         estado.deletedIds.push(itemRemovido.id);
@@ -1066,7 +1101,7 @@
         texto += `Nenhuma conta cadastrada.\n`;
       } else {
         estado.contas.forEach(c => {
-          const pago = Boolean(c.pagos && c.pagos[chaveMes]);
+          const pago = isPago(c, chaveMes);
           const status = pago ? '✅ Pago' : '⏳ Pendente';
           const valStr = (c.valor !== null && c.valor !== '' && !isNaN(c.valor)) ? ` - R$ ${Number(c.valor).toFixed(2).replace('.', ',')}` : '';
           texto += `• ${c.nome}${valStr} ➔ *${status}*\n`;
