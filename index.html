@@ -248,6 +248,15 @@
       color: #E5E5EA;
     }
 
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--text-secondary);
+      margin: 24px 0 10px 4px;
+    }
+
     .cards-grid {
       display: grid;
       grid-template-columns: 1fr;
@@ -368,7 +377,7 @@
     .empty-state {
       grid-column: 1 / -1;
       text-align: center;
-      padding: 48px 20px;
+      padding: 38px 20px;
       background: var(--bg-elevated);
       border-radius: var(--radius-md);
       border: 0.5px dashed var(--border-strong);
@@ -451,7 +460,7 @@
       <div class="segmented-wrapper">
         <div class="segmented-control">
           <button class="seg-btn active" id="segContas" onclick="alternarModo('contas')">Contas da Casa</button>
-          <button class="seg-btn" id="segAssinaturas" onclick="alternarModo('assinaturas')">Assinaturas</button>
+          <button class="seg-btn" id="segAssinaturas" onclick="alternarModo('assinaturas')">Assinaturas & Parcelas</button>
         </div>
       </div>
     </div>
@@ -477,16 +486,20 @@
     <section id="viewAssinaturas" style="display: none;">
       <div class="subs-summary-card">
         <div class="summary-metric">
-          <small>Custo Mensal de Assinaturas</small>
+          <small>Custo Mensal Total (Assinaturas + Parcelas)</small>
           <h2 id="somaMensalSubs">R$ 0,00</h2>
         </div>
         <div class="summary-metric secondary" style="text-align: right;">
-          <small>Projeção Anual</small>
+          <small>Projeção Anual de Assinaturas</small>
           <h3 id="somaAnualSubs">R$ 0,00</h3>
         </div>
       </div>
 
-      <div class="cards-grid" id="gridAssinaturas"></div>
+      <div class="section-title">Assinaturas e Serviços</div>
+      <div class="cards-grid" id="gridAssinaturas" style="margin-bottom: 24px;"></div>
+
+      <div class="section-title">Compras Parceladas</div>
+      <div class="cards-grid" id="gridParcelados"></div>
     </section>
   </main>
 
@@ -494,34 +507,40 @@
   <div id="modalForm" class="modal-overlay" onclick="fecharModalFora(event)">
     <div class="modal-sheet">
       <div class="modal-header">
-        <h3 id="modalTitulo">Adicionar Conta</h3>
+        <h3 id="modalTitulo">Adicionar</h3>
         <button class="close-btn" onclick="fecharModal()">✕</button>
       </div>
 
       <input type="hidden" id="editIndex" value="-1">
 
       <div class="form-group">
-        <label id="labelNome">Nome da Conta</label>
-        <input type="text" id="inputNome" placeholder="Ex: Energia, Água, Escola...">
+        <label id="labelNome">Nome</label>
+        <input type="text" id="inputNome" placeholder="Ex: Energia, iCloud+, iPhone...">
       </div>
 
       <div class="form-row">
         <div class="form-group">
-          <label id="labelValor">Valor (Opcional)</label>
+          <label id="labelValor">Valor (R$)</label>
           <input type="text" id="inputValor" placeholder="Ex: 180,00" inputmode="decimal">
         </div>
-        <div class="form-group">
-          <label id="labelDia">Dia do Vencimento</label>
+        <div class="form-group" id="grupoDiaOuParcelaAtual">
+          <label id="labelDia">Dia de Vencimento</label>
           <input type="number" id="inputDia" placeholder="1 a 31" min="1" max="31" inputmode="numeric">
         </div>
       </div>
 
-      <div class="form-group" id="grupoCiclo" style="display: none;">
-        <label>Ciclo de Cobrança</label>
-        <select id="inputCiclo">
-          <option value="mensal">Mensal</option>
-          <option value="anual">Anual (calcula equivalência mensal)</option>
+      <div class="form-group" id="grupoCiclo">
+        <label id="labelCicloOuTotal">Ciclo de Cobrança</label>
+        <select id="inputCiclo" onchange="tratarMudancaTipoRegistro()">
+          <option value="mensal">Assinatura Mensal</option>
+          <option value="anual">Assinatura Anual</option>
+          <option value="parcelado">Compra Parcelada</option>
         </select>
+      </div>
+
+      <div class="form-group" id="grupoTotalParcelas" style="display: none;">
+        <label>Número Total de Parcelas</label>
+        <input type="number" id="inputTotalParcelas" placeholder="Ex: 12" min="1" inputmode="numeric">
       </div>
 
       <div class="modal-footer">
@@ -554,24 +573,28 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'controle_ios_titanium_v7';
-    const SYNC_CONFIG_KEY = 'controle_sync_config_v7';
+    const STORAGE_KEY = 'controle_ios_titanium_v8';
+    const SYNC_CONFIG_KEY = 'controle_sync_config_v8';
 
     let modoAtivo = 'contas';
 
     let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
       contas: [],
       assinaturas: [],
+      parcelados: [],
       deletedIds: [],
       contasOrderTime: 0,
-      assinaturasOrderTime: 0
+      assinaturasOrderTime: 0,
+      parceladosOrderTime: 0
     };
 
     if (estado.contas) estado.contas.forEach(c => { if (!c.id) c.id = 'acc_' + Math.random().toString(36).substr(2, 9); });
     if (estado.assinaturas) estado.assinaturas.forEach(s => { if (!s.id) s.id = 'sub_' + Math.random().toString(36).substr(2, 9); });
+    if (estado.parcelados) estado.parcelados.forEach(p => { if (!p.id) p.id = 'par_' + Math.random().toString(36).substr(2, 9); });
     if (!estado.deletedIds) estado.deletedIds = [];
     if (!estado.contasOrderTime) estado.contasOrderTime = 0;
     if (!estado.assinaturasOrderTime) estado.assinaturasOrderTime = 0;
+    if (!estado.parceladosOrderTime) estado.parceladosOrderTime = 0;
 
     let syncConfig = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || {
       token: '',
@@ -628,34 +651,51 @@
       return isNaN(num) ? null : num;
     }
 
+    function calcularPrevisaoTermino(parcelaAtual, totalParcelas) {
+      let restantes = totalParcelas - parcelaAtual;
+      if (restantes < 0) restantes = 0;
+      const d = new Date();
+      d.setMonth(d.getMonth() + restantes);
+      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      return `${meses[d.getMonth()]}/${d.getFullYear()}`;
+    }
+
+    function tratarMudancaTipoRegistro() {
+      const tipo = document.getElementById('inputCiclo').value;
+      const labelDia = document.getElementById('labelDia');
+      const grupoTotal = document.getElementById('grupoTotalParcelas');
+      
+      if (tipo === 'parcelado') {
+        labelDia.textContent = 'Parcela Atual (Ex: 3)';
+        grupoTotal.style.display = 'block';
+      } else {
+        labelDia.textContent = 'Dia de Vencimento';
+        grupoTotal.style.display = 'none';
+      }
+    }
+
     function mesclarDadosNuvem(dadosNuvem) {
       if (!dadosNuvem) return;
 
       let allDeleted = new Set([...(estado.deletedIds || []), ...(dadosNuvem.deletedIds || [])]);
       estado.deletedIds = Array.from(allDeleted);
 
-      // Sincronização inteligente de Contas
+      // Sincronização de Contas
       if (dadosNuvem.contas) {
         let mapaLocal = new Map(estado.contas.map(c => [c.id, c]));
         let novaListaContas = [];
-
         dadosNuvem.contas.forEach(cn => {
           if (!cn.id) cn.id = 'acc_' + Math.random().toString(36).substr(2, 9);
           if (allDeleted.has(cn.id)) return;
-
           let existente = mapaLocal.get(cn.id);
           if (existente) {
             existente.nome = cn.nome;
             existente.valor = cn.valor;
             existente.dia = cn.dia;
             if (cn.pago !== undefined) {
-              let incoming = cn.pago;
-              let local = existente.pago;
-              let incObj = (typeof incoming === 'object' && incoming !== null) ? incoming : { checked: Boolean(incoming), time: 0 };
-              let locObj = (typeof local === 'object' && local !== null) ? local : { checked: Boolean(local), time: 0 };
-              if (incObj.time >= locObj.time) {
-                existente.pago = incObj;
-              }
+              let incObj = (typeof cn.pago === 'object' && cn.pago !== null) ? cn.pago : { checked: Boolean(cn.pago), time: 0 };
+              let locObj = (typeof existente.pago === 'object' && existente.pago !== null) ? existente.pago : { checked: Boolean(existente.pago), time: 0 };
+              if (incObj.time >= locObj.time) existente.pago = incObj;
             }
             novaListaContas.push(existente);
             mapaLocal.delete(cn.id);
@@ -663,40 +703,24 @@
             novaListaContas.push(cn);
           }
         });
+        mapaLocal.forEach(c => { if (!allDeleted.has(c.id)) novaListaContas.push(c); });
 
-        // Adiciona itens criados localmente que ainda não estão na nuvem
-        mapaLocal.forEach(c => {
-          if (!allDeleted.has(c.id)) novaListaContas.push(c);
-        });
-
-        // Respeita a ordem do aparelho que fez a alteração mais recente
-        let nuvemOrdemTime = dadosNuvem.contasOrderTime || 0;
-        let localOrdemTime = estado.contasOrderTime || 0;
-        if (nuvemOrdemTime >= localOrdemTime) {
-          estado.contasOrderTime = nuvemOrdemTime;
-          // Ordena novaListaContas de acordo com a sequência que veio da nuvem
+        if ((dadosNuvem.contasOrderTime || 0) >= (estado.contasOrderTime || 0)) {
+          estado.contasOrderTime = dadosNuvem.contasOrderTime;
           let ordemNuvemIds = dadosNuvem.contas.map(c => c.id);
-          novaListaContas.sort((a, b) => {
-            let idxA = ordemNuvemIds.indexOf(a.id);
-            let idxB = ordemNuvemIds.indexOf(b.id);
-            if (idxA === -1) return 1;
-            if (idxB === -1) return -1;
-            return idxA - idxB;
-          });
+          novaListaContas.sort((a, b) => (ordemNuvemIds.indexOf(a.id) === -1 ? 1 : ordemNuvemIds.indexOf(a.id)) - (ordemNuvemIds.indexOf(b.id) === -1 ? 1 : ordemNuvemIds.indexOf(b.id)));
         }
         estado.contas = novaListaContas;
       }
       estado.contas = estado.contas.filter(c => !allDeleted.has(c.id));
 
-      // Sincronização inteligente de Assinaturas
+      // Sincronização de Assinaturas
       if (dadosNuvem.assinaturas) {
         let mapaLocalSubs = new Map(estado.assinaturas.map(s => [s.id, s]));
         let novaListaSubs = [];
-
         dadosNuvem.assinaturas.forEach(sn => {
           if (!sn.id) sn.id = 'sub_' + Math.random().toString(36).substr(2, 9);
           if (allDeleted.has(sn.id)) return;
-
           let existente = mapaLocalSubs.get(sn.id);
           if (existente) {
             existente.nome = sn.nome;
@@ -709,27 +733,46 @@
             novaListaSubs.push(sn);
           }
         });
+        mapaLocalSubs.forEach(s => { if (!allDeleted.has(s.id)) novaListaSubs.push(s); });
 
-        mapaLocalSubs.forEach(s => {
-          if (!allDeleted.has(s.id)) novaListaSubs.push(s);
-        });
-
-        let nuvemSubsOrdemTime = dadosNuvem.assinaturasOrderTime || 0;
-        let localSubsOrdemTime = estado.assinaturasOrderTime || 0;
-        if (nuvemSubsOrdemTime >= localSubsOrdemTime) {
-          estado.assinaturasOrderTime = nuvemSubsOrdemTime;
+        if ((dadosNuvem.assinaturasOrderTime || 0) >= (estado.assinaturasOrderTime || 0)) {
+          estado.assinaturasOrderTime = dadosNuvem.assinaturasOrderTime;
           let ordemNuvemSubsIds = dadosNuvem.assinaturas.map(s => s.id);
-          novaListaSubs.sort((a, b) => {
-            let idxA = ordemNuvemSubsIds.indexOf(a.id);
-            let idxB = ordemNuvemSubsIds.indexOf(b.id);
-            if (idxA === -1) return 1;
-            if (idxB === -1) return -1;
-            return idxA - idxB;
-          });
+          novaListaSubs.sort((a, b) => (ordemNuvemSubsIds.indexOf(a.id) === -1 ? 1 : ordemNuvemSubsIds.indexOf(a.id)) - (ordemNuvemSubsIds.indexOf(b.id) === -1 ? 1 : ordemNuvemSubsIds.indexOf(b.id)));
         }
         estado.assinaturas = novaListaSubs;
       }
       estado.assinaturas = estado.assinaturas.filter(s => !allDeleted.has(s.id));
+
+      // Sincronização de Parcelados
+      if (dadosNuvem.parcelados) {
+        let mapaLocalPar = new Map(estado.parcelados.map(p => [p.id, p]));
+        let novaListaPar = [];
+        dadosNuvem.parcelados.forEach(pn => {
+          if (!pn.id) pn.id = 'par_' + Math.random().toString(36).substr(2, 9);
+          if (allDeleted.has(pn.id)) return;
+          let existente = mapaLocalPar.get(pn.id);
+          if (existente) {
+            existente.nome = pn.nome;
+            existente.valor = pn.valor;
+            existente.parcelaAtual = pn.parcelaAtual;
+            existente.totalParcelas = pn.totalParcelas;
+            novaListaPar.push(existente);
+            mapaLocalPar.delete(pn.id);
+          } else {
+            novaListaPar.push(pn);
+          }
+        });
+        mapaLocalPar.forEach(p => { if (!allDeleted.has(p.id)) novaListaPar.push(p); });
+
+        if ((dadosNuvem.parceladosOrderTime || 0) >= (estado.parceladosOrderTime || 0)) {
+          estado.parceladosOrderTime = dadosNuvem.parceladosOrderTime;
+          let ordemNuvemParIds = dadosNuvem.parcelados.map(p => p.id);
+          novaListaPar.sort((a, b) => (ordemNuvemParIds.indexOf(a.id) === -1 ? 1 : ordemNuvemParIds.indexOf(a.id)) - (ordemNuvemParIds.indexOf(b.id) === -1 ? 1 : ordemNuvemParIds.indexOf(b.id)));
+        }
+        estado.parcelados = novaListaPar;
+      }
+      estado.parcelados = estado.parcelados.filter(p => !allDeleted.has(p.id));
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
       renderizarTudo();
@@ -845,8 +888,8 @@
       document.getElementById('viewContas').style.display = isContas ? 'block' : 'none';
       document.getElementById('viewAssinaturas').style.display = isContas ? 'none' : 'block';
 
-      document.getElementById('mainTitle').textContent = isContas ? 'Contas da Casa' : 'Assinaturas';
-      document.getElementById('btnNovoTexto').textContent = isContas ? '+ Nova Conta' : '+ Assinatura';
+      document.getElementById('mainTitle').textContent = isContas ? 'Contas da Casa' : 'Assinaturas & Parcelas';
+      document.getElementById('btnNovoTexto').textContent = isContas ? '+ Nova Conta' : '+ Adicionar';
 
       renderizarTudo();
     }
@@ -886,10 +929,7 @@
         if (pago) pagasGeral++;
 
         const valParsed = parseValor(conta.valor);
-        if (valParsed !== null) {
-          somaTotalContas += valParsed;
-        }
-
+        if (valParsed !== null) somaTotalContas += valParsed;
         const valorFormatado = valParsed !== null ? valParsed.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
 
         const card = document.createElement('div');
@@ -909,7 +949,7 @@
             <div class="price-block">
               ${valParsed !== null ? `<div class="price-value">${valorFormatado}</div>` : `<div class="price-optional">Sem valor fixo</div>`}
             </div>
-            <button class="edit-btn" onclick="abrirModalEdicao(${index})">Editar</button>
+            <button class="edit-btn" onclick="abrirModalEdicao('contas', ${index})">Editar</button>
           </div>
         `;
         grid.appendChild(card);
@@ -920,77 +960,132 @@
     }
 
     function renderizarAssinaturas() {
-      const grid = document.getElementById('gridAssinaturas');
-      grid.innerHTML = '';
+      const gridSubs = document.getElementById('gridAssinaturas');
+      const gridPar = document.getElementById('gridParcelados');
+      gridSubs.innerHTML = '';
+      gridPar.innerHTML = '';
+
       let somaMensal = 0;
-      const diaHoje = (new Date()).getDate();
+      let somaAnualAssinaturas = 0;
 
+      // Renderiza Assinaturas
       if (estado.assinaturas.length === 0) {
-        document.getElementById('somaMensalSubs').textContent = 'R$ 0,00';
-        document.getElementById('somaAnualSubs').textContent = 'R$ 0,00';
-        grid.innerHTML = `<div class="empty-state"><p>Nenhuma assinatura cadastrada.</p><button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()">Adicionar Assinatura</button></div>`;
-        return;
-      }
+        gridSubs.innerHTML = `<div class="empty-state"><p>Nenhuma assinatura cadastrada.</p></div>`;
+      } else {
+        estado.assinaturas.forEach((sub, index) => {
+          const valorNum = parseValor(sub.valor) || 0;
+          if (sub.ciclo === 'anual') {
+            somaMensal += valorNum / 12;
+            somaAnualAssinaturas += valorNum;
+          } else {
+            somaMensal += valorNum;
+            somaAnualAssinaturas += valorNum * 12;
+          }
 
-      estado.assinaturas.forEach((sub, index) => {
-        const valorNum = parseValor(sub.valor) || 0;
-        somaMensal += (sub.ciclo === 'anual' ? valorNum / 12 : valorNum);
+          const valorExibido = valorNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          const sufixoCiclo = sub.ciclo === 'anual' ? '/ano' : '/mês';
 
-        let diasParaRenovar = sub.dia - diaHoje;
-        if (diasParaRenovar < 0) diasParaRenovar += 30;
-        const alertaProximo = diasParaRenovar <= 5;
-        const valorExibido = valorNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const sufixoCiclo = sub.ciclo === 'anual' ? '/ano' : '/mês';
-
-        const card = document.createElement('div');
-        card.className = 'ios-card';
-        card.innerHTML = `
-          <div class="card-left">
-            <div class="item-details">
-              <div class="item-title">${sub.nome}</div>
-              <div class="item-meta">
-                <span>Dia ${sub.dia}</span>
-                ${alertaProximo ? `<span class="badge badge-alert">Renova em ${diasParaRenovar === 0 ? 'hoje' : diasParaRenovar + 'd'}</span>` : `<span class="badge badge-pending">${sub.ciclo === 'anual' ? 'Anual' : 'Mensal'}</span>`}
+          const card = document.createElement('div');
+          card.className = 'ios-card';
+          card.innerHTML = `
+            <div class="card-left">
+              <div class="item-details">
+                <div class="item-title">${sub.nome}</div>
+                <div class="item-meta">
+                  <span>Renova dia ${sub.dia}</span>
+                  <span class="badge badge-pending">${sub.ciclo === 'anual' ? 'Anual' : 'Mensal'}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="card-right">
-            <div class="price-block">
-              <div class="price-value">${valorExibido}<span style="font-size:0.72rem; font-weight:500; color:var(--text-muted);">${sufixoCiclo}</span></div>
+            <div class="card-right">
+              <div class="price-block">
+                <div class="price-value">${valorExibido}<span style="font-size:0.72rem; font-weight:500; color:var(--text-muted);">${sufixoCiclo}</span></div>
+              </div>
+              <button class="edit-btn" onclick="abrirModalEdicao('assinaturas', ${index})">Editar</button>
             </div>
-            <button class="edit-btn" onclick="abrirModalEdicao(${index})">Editar</button>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
+          `;
+          gridSubs.appendChild(card);
+        });
+      }
 
-      const somaAnual = somaMensal * 12;
+      // Renderiza Parcelados
+      if (estado.parcelados.length === 0) {
+        gridPar.innerHTML = `<div class="empty-state"><p>Nenhuma compra parcelada cadastrada.</p></div>`;
+      } else {
+        estado.parcelados.forEach((par, index) => {
+          const valorNum = parseValor(par.valor) || 0;
+          somaMensal += valorNum;
+
+          const pAtual = parseInt(par.parcelaAtual) || 1;
+          const pTotal = parseInt(par.totalParcelas) || 1;
+          const previsao = calcularPrevisaoTermino(pAtual, pTotal);
+          const valorExibido = valorNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+          const card = document.createElement('div');
+          card.className = 'ios-card';
+          card.innerHTML = `
+            <div class="card-left">
+              <div class="item-details">
+                <div class="item-title">${par.nome}</div>
+                <div class="item-meta">
+                  <span class="badge badge-alert">Parcela ${pAtual} de ${pTotal}</span>
+                  <span>Término: ${previsao}</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-right">
+              <div class="price-block">
+                <div class="price-value">${valorExibido}<span style="font-size:0.72rem; font-weight:500; color:var(--text-muted);">/mês</span></div>
+              </div>
+              <button class="edit-btn" onclick="abrirModalEdicao('parcelados', ${index})">Editar</button>
+            </div>
+          `;
+          gridPar.appendChild(card);
+        });
+      }
+
       document.getElementById('somaMensalSubs').textContent = somaMensal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      document.getElementById('somaAnualSubs').textContent = somaAnual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      document.getElementById('somaAnualSubs').textContent = somaAnualAssinaturas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
     function alternarPagamentoConta(index) {
       const conta = estado.contas[index];
       let atual = isPago(conta);
-      conta.pago = {
-        checked: !atual,
-        time: Date.now()
-      };
+      conta.pago = { checked: !atual, time: Date.now() };
       salvarNoAparelho();
     }
 
-    function configurarCamposModal(isEdicao) {
-      const isContas = modoAtivo === 'contas';
-      document.getElementById('modalTitulo').textContent = isEdicao ? (isContas ? 'Editar Conta' : 'Editar Assinatura') : (isContas ? 'Nova Conta da Casa' : 'Nova Assinatura');
-      document.getElementById('labelNome').textContent = isContas ? 'Nome da Conta' : 'Serviço / Assinatura';
-      document.getElementById('inputNome').placeholder = isContas ? 'Ex: Energia, Internet, Escola' : 'Ex: iCloud+, CapCut Pro, Netflix';
-      document.getElementById('labelValor').textContent = isContas ? 'Valor (Opcional)' : 'Valor da Assinatura (R$)';
-      document.getElementById('labelDia').textContent = isContas ? 'Dia do Vencimento' : 'Dia da Cobrança';
-      document.getElementById('grupoCiclo').style.display = isContas ? 'none' : 'block';
-      
+    function configurarCamposModal(tipoSecao, isEdicao) {
+      const modalTitulo = document.getElementById('modalTitulo');
+      const labelNome = document.getElementById('labelNome');
+      const inputNome = document.getElementById('inputNome');
+      const labelValor = document.getElementById('labelValor');
+      const labelDia = document.getElementById('labelDia');
+      const grupoCiclo = document.getElementById('grupoCiclo');
+      const grupoTotal = document.getElementById('grupoTotalParcelas');
+      const inputCiclo = document.getElementById('inputCiclo');
+
       document.getElementById('btnExcluir').style.display = isEdicao ? 'inline-block' : 'none';
       document.getElementById('btnSubir').style.display = isEdicao ? 'inline-block' : 'none';
       document.getElementById('btnDescer').style.display = isEdicao ? 'inline-block' : 'none';
+
+      if (tipoSecao === 'contas') {
+        modalTitulo.textContent = isEdicao ? 'Editar Conta da Casa' : 'Nova Conta da Casa';
+        labelNome.textContent = 'Nome da Conta';
+        inputNome.placeholder = 'Ex: Energia, Internet, Escola';
+        labelValor.textContent = 'Valor (Opcional)';
+        labelDia.textContent = 'Dia do Vencimento';
+        grupoCiclo.style.display = 'none';
+        grupoTotal.style.display = 'none';
+      } else if (tipoSecao === 'assinaturas') {
+        modalTitulo.textContent = isEdicao ? 'Editar Assinatura' : 'Nova Assinatura / Compra';
+        labelNome.textContent = 'Nome do Serviço / Compra';
+        inputNome.placeholder = 'Ex: iCloud+, iPhone, Netflix';
+        labelValor.textContent = 'Valor (R$)';
+        grupoCiclo.style.display = 'block';
+        if (!isEdicao) inputCiclo.value = 'mensal';
+        tratarMudancaTipoRegistro();
+      }
     }
 
     function abrirModalNovo() {
@@ -998,20 +1093,34 @@
       document.getElementById('inputNome').value = '';
       document.getElementById('inputValor').value = '';
       document.getElementById('inputDia').value = '';
-      document.getElementById('inputCiclo').value = 'mensal';
-      configurarCamposModal(false);
+      document.getElementById('inputTotalParcelas').value = '';
+      
+      const tipoSecao = (modoAtivo === 'contas') ? 'contas' : 'assinaturas';
+      configurarCamposModal(tipoSecao, false);
       document.getElementById('modalForm').classList.add('active');
     }
 
-    function abrirModalEdicao(index) {
-      const lista = modoAtivo === 'contas' ? estado.contas : estado.assinaturas;
-      const item = lista[index];
-      document.getElementById('editIndex').value = String(index);
+    function abrirModalEdicao(secao, index) {
+      document.getElementById('editIndex').value = `${secao}:${index}`;
+      const item = estado[secao][index];
+      
       document.getElementById('inputNome').value = item.nome || '';
       document.getElementById('inputValor').value = (item.valor !== null && item.valor !== undefined) ? item.valor : '';
-      document.getElementById('inputDia').value = item.dia || '';
-      document.getElementById('inputCiclo').value = item.ciclo || 'mensal';
-      configurarCamposModal(true);
+      
+      if (secao === 'parcelados') {
+        document.getElementById('inputCiclo').value = 'parcelado';
+        document.getElementById('inputDia').value = item.parcelaAtual || 1;
+        document.getElementById('inputTotalParcelas').value = item.totalParcelas || 1;
+        configurarCamposModal('assinaturas', true);
+      } else if (secao === 'assinaturas') {
+        document.getElementById('inputCiclo').value = item.ciclo || 'mensal';
+        document.getElementById('inputDia').value = item.dia || 10;
+        configurarCamposModal('assinaturas', true);
+      } else {
+        document.getElementById('inputDia').value = item.dia || 10;
+        configurarCamposModal('contas', true);
+      }
+
       document.getElementById('modalForm').classList.add('active');
     }
 
@@ -1019,8 +1128,10 @@
     function fecharModalFora(e) { if (e.target.id === 'modalForm') fecharModal(); }
 
     function moverItem(direcao) {
-      const index = parseInt(document.getElementById('editIndex').value, 10);
-      const lista = modoAtivo === 'contas' ? estado.contas : estado.assinaturas;
+      const parts = document.getElementById('editIndex').value.split(':');
+      const secao = parts[0];
+      const index = parseInt(parts[1], 10);
+      const lista = estado[secao];
       const novoIndex = index + direcao;
 
       if (novoIndex < 0 || novoIndex >= lista.length) return;
@@ -1029,35 +1140,31 @@
       lista[index] = lista[novoIndex];
       lista[novoIndex] = temp;
 
-      document.getElementById('editIndex').value = novoIndex;
+      document.getElementById('editIndex').value = `${secao}:${novoIndex}`;
 
-      if (modoAtivo === 'contas') {
-        estado.contasOrderTime = Date.now();
-      } else {
-        estado.assinaturasOrderTime = Date.now();
-      }
+      if (secao === 'contas') estado.contasOrderTime = Date.now();
+      else if (secao === 'assinaturas') estado.assinaturasOrderTime = Date.now();
+      else if (secao === 'parcelados') estado.parceladosOrderTime = Date.now();
 
       salvarNoAparelho();
       mostrarToast('Ordem atualizada');
     }
 
     function salvarRegistro() {
-      const index = parseInt(document.getElementById('editIndex').value, 10);
+      const editVal = document.getElementById('editIndex').value;
       const nome = document.getElementById('inputNome').value.trim();
       const valorRaw = document.getElementById('inputValor').value.trim();
-      const diaRaw = parseInt(document.getElementById('inputDia').value, 10);
-      const ciclo = document.getElementById('inputCiclo').value;
+      const tipoCiclo = document.getElementById('inputCiclo').value;
 
       if (!nome) { mostrarToast('Digite um nome válido'); return; }
-      const dia = (!isNaN(diaRaw) && diaRaw >= 1 && diaRaw <= 31) ? diaRaw : 10;
 
-      if (modoAtivo === 'contas') {
-        const valorParsed = parseValor(valorRaw);
-        if (index >= 0) {
-          estado.contas[index].nome = nome;
-          estado.contas[index].valor = valorParsed;
-          estado.contas[index].dia = dia;
-        } else {
+      if (editVal === '-1') {
+        // Criação nova
+        if (modoAtivo === 'contas') {
+          const valorParsed = parseValor(valorRaw);
+          const diaRaw = parseInt(document.getElementById('inputDia').value, 10);
+          const dia = (!isNaN(diaRaw) && diaRaw >= 1 && diaRaw <= 31) ? diaRaw : 10;
+
           estado.contas.push({
             id: 'acc_' + Math.random().toString(36).substr(2, 9),
             nome,
@@ -1066,24 +1173,97 @@
             pago: { checked: false, time: Date.now() }
           });
           estado.contasOrderTime = Date.now();
+        } else {
+          // Na aba de assinaturas, verifica se é parcelado ou assinatura normal
+          const valorParsed = parseValor(valorRaw);
+          if (valorParsed === null || valorParsed <= 0) { mostrarToast('Informe um valor válido'); return; }
+
+          if (tipoCiclo === 'parcelado') {
+            const parcelaAtual = parseInt(document.getElementById('inputDia').value, 10) || 1;
+            const totalParcelas = parseInt(document.getElementById('inputTotalParcelas').value, 10) || 1;
+            estado.parcelados.push({
+              id: 'par_' + Math.random().toString(36).substr(2, 9),
+              nome,
+              valor: valorParsed,
+              parcelaAtual,
+              totalParcelas
+            });
+            estado.parceladosOrderTime = Date.now();
+          } else {
+            const diaRaw = parseInt(document.getElementById('inputDia').value, 10);
+            const dia = (!isNaN(diaRaw) && diaRaw >= 1 && diaRaw <= 31) ? diaRaw : 10;
+            estado.assinaturas.push({
+              id: 'sub_' + Math.random().toString(36).substr(2, 9),
+              nome,
+              valor: valorParsed,
+              dia,
+              ciclo: tipoCiclo
+            });
+            estado.assinaturasOrderTime = Date.now();
+          }
         }
       } else {
-        const valorAssinatura = parseValor(valorRaw);
-        if (valorAssinatura === null || valorAssinatura <= 0) { mostrarToast('Informe um valor válido para a assinatura'); return; }
-        if (index >= 0) {
-          estado.assinaturas[index].nome = nome;
-          estado.assinaturas[index].valor = valorAssinatura;
-          estado.assinaturas[index].dia = dia;
-          estado.assinaturas[index].ciclo = ciclo;
-        } else {
-          estado.assinaturas.push({
-            id: 'sub_' + Math.random().toString(36).substr(2, 9),
-            nome,
-            valor: valorAssinatura,
-            dia,
-            ciclo
-          });
-          estado.assinaturasOrderTime = Date.now();
+        // Edição de item existente
+        const parts = editVal.split(':');
+        const secao = parts[0];
+        const index = parseInt(parts[1], 10);
+
+        if (secao === 'contas') {
+          const valorParsed = parseValor(valorRaw);
+          const diaRaw = parseInt(document.getElementById('inputDia').value, 10);
+          const dia = (!isNaN(diaRaw) && diaRaw >= 1 && diaRaw <= 31) ? diaRaw : 10;
+          estado.contas[index].nome = nome;
+          estado.contas[index].valor = valorParsed;
+          estado.contas[index].dia = dia;
+        } else if (secao === 'assinaturas') {
+          const valorParsed = parseValor(valorRaw);
+          if (valorParsed === null || valorParsed <= 0) { mostrarToast('Informe um valor válido'); return; }
+          
+          if (tipoCiclo === 'parcelado') {
+            // Converte assinatura comum em parcelado
+            estado.assinaturas.splice(index, 1);
+            const parcelaAtual = parseInt(document.getElementById('inputDia').value, 10) || 1;
+            const totalParcelas = parseInt(document.getElementById('inputTotalParcelas').value, 10) || 1;
+            estado.parcelados.push({
+              id: 'par_' + Math.random().toString(36).substr(2, 9),
+              nome,
+              valor: valorParsed,
+              parcelaAtual,
+              totalParcelas
+            });
+            estado.parceladosOrderTime = Date.now();
+          } else {
+            const diaRaw = parseInt(document.getElementById('inputDia').value, 10);
+            const dia = (!isNaN(diaRaw) && diaRaw >= 1 && diaRaw <= 31) ? diaRaw : 10;
+            estado.assinaturas[index].nome = nome;
+            estado.assinaturas[index].valor = valorParsed;
+            estado.assinaturas[index].dia = dia;
+            estado.assinaturas[index].ciclo = tipoCiclo;
+          }
+        } else if (secao === 'parcelados') {
+          const valorParsed = parseValor(valorRaw);
+          if (valorParsed === null || valorParsed <= 0) { mostrarToast('Informe um valor válido'); return; }
+
+          if (tipoCiclo !== 'parcelado') {
+            // Converte parcelado em assinatura comum
+            estado.parcelados.splice(index, 1);
+            const dia = parseInt(document.getElementById('inputDia').value, 10) || 10;
+            estado.assinaturas.push({
+              id: 'sub_' + Math.random().toString(36).substr(2, 9),
+              nome,
+              valor: valorParsed,
+              dia,
+              ciclo: tipoCiclo
+            });
+            estado.assinaturasOrderTime = Date.now();
+          } else {
+            const parcelaAtual = parseInt(document.getElementById('inputDia').value, 10) || 1;
+            const totalParcelas = parseInt(document.getElementById('inputTotalParcelas').value, 10) || 1;
+            estado.parcelados[index].nome = nome;
+            estado.parcelados[index].valor = valorParsed;
+            estado.parcelados[index].parcelaAtual = parcelaAtual;
+            estado.parcelados[index].totalParcelas = totalParcelas;
+          }
         }
       }
 
@@ -1093,9 +1273,13 @@
     }
 
     function excluirRegistro() {
-      const index = parseInt(document.getElementById('editIndex').value, 10);
-      if (index < 0) return;
-      const lista = modoAtivo === 'contas' ? estado.contas : estado.assinaturas;
+      const editVal = document.getElementById('editIndex').value;
+      if (editVal === '-1') return;
+      const parts = editVal.split(':');
+      const secao = parts[0];
+      const index = parseInt(parts[1], 10);
+
+      const lista = estado[secao];
       const itemRemovido = lista[index];
       
       if (itemRemovido && itemRemovido.id) {
@@ -1110,9 +1294,9 @@
     }
 
     function enviarRelatorioWhatsApp() {
-      let texto = `📊 *Relatório de Contas da Casa*\n\n`;
+      let texto = `📊 *Relatório Financeiro*\n\n`;
       
-      texto += `🏠 *Contas:*\n`;
+      texto += `🏠 *Contas da Casa:*\n`;
       if (estado.contas.length === 0) {
         texto += `Nenhuma conta cadastrada.\n`;
       } else {
@@ -1130,17 +1314,22 @@
         }
       }
 
-      texto += `\n🔄 *Assinaturas:*\n`;
-      if (estado.assinaturas.length === 0) {
-        texto += `Nenhuma assinatura cadastrada.\n`;
+      texto += `\n🔄 *Assinaturas e Parcelas:*\n`;
+      if (estado.assinaturas.length === 0 && estado.parcelados.length === 0) {
+        texto += `Nenhuma assinatura ou parcela cadastrada.\n`;
       } else {
-        let somaSubs = 0;
+        let somaMensal = 0;
         estado.assinaturas.forEach(s => {
-          const valNum = parseValor(s.valor) || 0;
-          somaSubs += (s.ciclo === 'anual' ? valNum / 12 : valNum);
-          texto += `• ${s.nome}: R$ ${valNum.toFixed(2).replace('.', ',')} (${s.ciclo})\n`;
+          const v = parseValor(s.valor) || 0;
+          somaMensal += (s.ciclo === 'anual' ? v / 12 : v);
+          texto += `• ${s.nome}: R$ ${v.toFixed(2).replace('.', ',')} (${s.ciclo})\n`;
         });
-        texto += `\n*Total Mensal Assinaturas:* R$ ${somaSubs.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        estado.parcelados.forEach(p => {
+          const v = parseValor(p.valor) || 0;
+          somaMensal += v;
+          texto += `• ${p.nome}: R$ ${v.toFixed(2).replace('.', ',')} (Parcela ${p.parcelaAtual}/${p.totalParcelas})\n`;
+        });
+        texto += `\n*Custo Mensal Total:* R$ ${somaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       }
 
       const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(texto)}`;
