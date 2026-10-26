@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -217,7 +217,7 @@
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     }
 
@@ -242,9 +242,10 @@
       color: #FFFFFF;
     }
 
-    .summary-metric.secondary h3 {
-      font-size: 1.1rem;
+    .summary-metric h3 {
+      font-size: 1.25rem;
       font-weight: 600;
+      letter-spacing: -0.3px;
       color: #E5E5EA;
     }
 
@@ -485,13 +486,13 @@
 
     <section id="viewAssinaturas" style="display: none;">
       <div class="subs-summary-card">
-        <div class="summary-metric">
-          <small>Custo Mensal Total (Assinaturas + Parcelas)</small>
-          <h2 id="somaMensalSubs">R$ 0,00</h2>
+        <div class="summary-metric" style="width: 100%;">
+          <small>Custo Mensal (Assinaturas + Parcelas)</small>
+          <h3 id="composicaoSubParcelas">R$ 0,00 + R$ 0,00</h3>
         </div>
-        <div class="summary-metric secondary" style="text-align: right;">
-          <small>Composição do Custo</small>
-          <h3 id="composicaoSubParcelas">Assinaturas: R$ 0,00 + Parcelas: R$ 0,00</h3>
+        <div class="summary-metric" style="width: 100%; text-align: right;">
+          <small>Valor Total</small>
+          <h2 id="somaMensalSubs">R$ 0,00</h2>
         </div>
       </div>
 
@@ -578,7 +579,7 @@
 
     let modoAtivo = 'contas';
 
-    let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+    let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('controle_ios_titanium_v8')) || {
       contas: [],
       assinaturas: [],
       parcelados: [],
@@ -596,7 +597,7 @@
     if (!estado.assinaturasOrderTime) estado.assinaturasOrderTime = 0;
     if (!estado.parceladosOrderTime) estado.parceladosOrderTime = 0;
 
-    let syncConfig = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || {
+    let syncConfig = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || JSON.parse(localStorage.getItem('controle_sync_config_v8')) || {
       token: '',
       gistId: ''
     };
@@ -651,13 +652,14 @@
       return isNaN(num) ? null : num;
     }
 
-    function calcularPrevisaoTermino(parcelaAtual, totalParcelas) {
+    function calcularPrevisaoTermino(parcelaAtual, totalParcelas, formatoCurto = false) {
       let restantes = totalParcelas - parcelaAtual;
       if (restantes < 0) restantes = 0;
       const d = new Date();
       d.setMonth(d.getMonth() + restantes);
       const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-      return `${meses[d.getMonth()]}/${d.getFullYear()}`;
+      const ano = formatoCurto ? String(d.getFullYear()).slice(-2) : d.getFullYear();
+      return `${meses[d.getMonth()]}/${ano}`;
     }
 
     function tratarMudancaTipoRegistro() {
@@ -860,7 +862,7 @@
         abrirConfigSync();
         return;
       }
-      mostrarToast('A sincronizar com a nuvem...');
+      mostrarToast('Sincronizando com a nuvem...');
       await baixarDaNuvem();
       await enviarParaNuvem();
       mostrarToast('Tudo atualizado!');
@@ -878,7 +880,7 @@
       syncConfig.gistId = ''; 
       localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
       fecharConfigSync();
-      mostrarToast('Token salvo! A descarregar dados...');
+      mostrarToast('Token salvo! Baixando dados...');
       baixarDaNuvem();
     }
 
@@ -1010,7 +1012,7 @@
         });
       }
 
-      // Renderiza Parcelados com o botão de Check para avançar parcela
+      // Renderiza Parcelados
       if (estado.parcelados.length === 0) {
         gridPar.innerHTML = `<div class="empty-state"><p>Nenhuma compra parcelada cadastrada.</p></div>`;
       } else {
@@ -1048,8 +1050,11 @@
       }
 
       const somaMensalTotal = somaAssinaturasMes + somaParceladosMes;
+      const assFormatado = somaAssinaturasMes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const parFormatado = somaParceladosMes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+      document.getElementById('composicaoSubParcelas').textContent = `${assFormatado} + ${parFormatado}`;
       document.getElementById('somaMensalSubs').textContent = somaMensalTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      document.getElementById('composicaoSubParcelas').textContent = `Assinaturas: ${somaAssinaturasMes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} + Parcelas: ${somaParceladosMes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
     }
 
     function alternarPagamentoConta(index) {
@@ -1317,46 +1322,79 @@
       mostrarToast('Removido');
     }
 
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
     function enviarRelatorioWhatsApp() {
-      let texto = `📊 *Relatório Financeiro*\n\n`;
+      let totalContas = estado.contas.length;
+      let pagasContas = 0;
+      let somaTotalContas = 0;
+
+      estado.contas.forEach(c => {
+        if (isPago(c)) pagasContas++;
+        const valParsed = parseValor(c.valor);
+        if (valParsed !== null) somaTotalContas += valParsed;
+      });
+
+      let texto = `📊 *RELATÓRIO FINANCEIRO*\n\n`;
       
-      texto += `🏠 *Contas da Casa:*\n`;
-      if (estado.contas.length === 0) {
+      texto += `🏠 *CONTAS DA CASA (${pagasContas} de ${totalContas} pagas)*\n`;
+      if (totalContas === 0) {
         texto += `Nenhuma conta cadastrada.\n`;
       } else {
-        let somaTotalContas = 0;
         estado.contas.forEach(c => {
           const pago = isPago(c);
-          const status = pago ? '✅ Pago' : '⏳ Pendente';
-          const valParsed = parseValor(c.valor);
-          if (valParsed !== null) somaTotalContas += valParsed;
-          const valStr = valParsed !== null ? ` - R$ ${valParsed.toFixed(2).replace('.', ',')}` : '';
-          texto += `• ${c.nome}${valStr} ➔ *${status}*\n`;
+          const icone = pago ? '✅' : '⏳';
+          const statusTxt = pago ? 'Paga' : 'Pendente';
+          texto += `${icone} ${c.nome} _(${statusTxt})_\n`;
         });
-        if (somaTotalContas > 0) {
-          texto += `\n*Total Contas com Valor:* R$ ${somaTotalContas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
-        }
+        texto += `▸ *Total Contas Fixas:* ${formatarMoeda(somaTotalContas)}\n`;
       }
 
-      texto += `\n🔄 *Assinaturas e Parcelas:*\n`;
-      if (estado.assinaturas.length === 0 && estado.parcelados.length === 0) {
-        texto += `Nenhuma assinatura ou parcela cadastrada.\n`;
+      texto += `\n━━━━━━━━━━━━━━\n\n`;
+
+      let somaAss = 0;
+      texto += `🔄 *ASSINATURAS*\n`;
+      if (estado.assinaturas.length === 0) {
+        texto += `Nenhuma assinatura cadastrada.\n`;
       } else {
-        let somaAss = 0;
-        let somaPar = 0;
         estado.assinaturas.forEach(s => {
           const v = parseValor(s.valor) || 0;
           somaAss += (s.ciclo === 'anual' ? v / 12 : v);
-          texto += `• ${s.nome}: R$ ${v.toFixed(2).replace('.', ',')} (${s.ciclo})\n`;
+          const cicloLabel = s.ciclo === 'anual' ? 'Anual' : 'Mensal';
+          texto += `• ${s.nome}: *${formatarMoeda(v)}* _(${cicloLabel})_\n`;
         });
+        texto += `▸ *Subtotal Assinaturas:* ${formatarMoeda(somaAss)}/mês\n`;
+      }
+
+      texto += `\n━━━━━━━━━━━━━━\n\n`;
+
+      let somaPar = 0;
+      texto += `🛍️ *COMPRAS PARCELADAS*\n`;
+      if (estado.parcelados.length === 0) {
+        texto += `Nenhuma compra parcelada cadastrada.\n`;
+      } else {
         estado.parcelados.forEach(p => {
           const v = parseValor(p.valor) || 0;
           somaPar += v;
-          texto += `• ${p.nome}: R$ ${v.toFixed(2).replace('.', ',')} (Parcela ${p.parcelaAtual}/${p.totalParcelas})\n`;
+          const pAtual = parseInt(p.parcelaAtual) || 1;
+          const pTotal = parseInt(p.totalParcelas) || 1;
+          const fim = calcularPrevisaoTermino(pAtual, pTotal, true);
+          texto += `• ${p.nome}: *${formatarMoeda(v)}* _(${pAtual}/${pTotal} • Fim: ${fim})_\n`;
         });
-        let totalGeral = somaAss + somaPar;
-        texto += `\n*Custo Mensal Total:* R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Assinaturas: R$ ${somaAss.toFixed(2).replace('.', ',')} + Parcelas: R$ ${somaPar.toFixed(2).replace('.', ',')})`;
+        texto += `▸ *Subtotal Parcelas:* ${formatarMoeda(somaPar)}/mês\n`;
       }
+
+      texto += `\n━━━━━━━━━━━━━━\n\n`;
+
+      const totalAssPar = somaAss + somaPar;
+      const totalGeral = somaTotalContas + totalAssPar;
+
+      texto += `💰 *RESUMO DO CICLO*\n`;
+      texto += `• Contas Fixas: *${formatarMoeda(somaTotalContas)}*\n`;
+      texto += `• Assinaturas + Parcelas: *${formatarMoeda(totalAssPar)}*\n`;
+      texto += `📌 *TOTAL GERAL:* *${formatarMoeda(totalGeral)}*`;
 
       const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(texto)}`;
       window.open(urlWhatsApp, '_blank');
