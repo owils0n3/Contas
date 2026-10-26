@@ -188,7 +188,6 @@
       padding: 18px 20px;
     }
 
-    /* Painel do Ciclo de Contas */
     .cycle-bar-wrapper {
       background: var(--bg-elevated);
       border-radius: var(--radius-md);
@@ -418,6 +417,7 @@
     .btn-modal { height: 42px; padding: 0 18px; border-radius: 11px; font-size: 0.9rem; font-weight: 600; border: none; cursor: pointer; flex: 1; }
     .btn-modal-save { background: var(--graphite-dark); color: #FFFFFF; }
     .btn-modal-delete { background: #FFF1F0; color: var(--danger-text); flex: 0 0 auto; }
+    .btn-modal-order { background: var(--bg-segmented); color: var(--text-primary); flex: 0 0 auto; padding: 0 12px; }
 
     #toast {
       position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-80px);
@@ -518,6 +518,8 @@
 
       <div class="modal-footer">
         <button class="btn-modal btn-modal-delete" id="btnExcluir" style="display: none;" onclick="excluirRegistro()">Excluir</button>
+        <button class="btn-modal btn-modal-order" id="btnSubir" style="display: none;" onclick="moverItem(-1)" title="Subir posição">⬆️ Subir</button>
+        <button class="btn-modal btn-modal-order" id="btnDescer" style="display: none;" onclick="moverItem(1)" title="Descer posição">⬇️ Descer</button>
         <button class="btn-modal btn-modal-save" onclick="salvarRegistro()">Salvar</button>
       </div>
     </div>
@@ -544,8 +546,8 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'controle_ios_titanium_v4';
-    const SYNC_CONFIG_KEY = 'controle_sync_config_v4';
+    const STORAGE_KEY = 'controle_ios_titanium_v5';
+    const SYNC_CONFIG_KEY = 'controle_sync_config_v5';
 
     let modoAtivo = 'contas';
 
@@ -614,49 +616,64 @@
       estado.deletedIds = Array.from(allDeleted);
 
       if (dadosNuvem.contas) {
+        // Mantém a ordem da nuvem se houver dados novos, ou faz o merge mantendo IDs
+        let novaListaContas = [];
         dadosNuvem.contas.forEach(cn => {
           if (!cn.id) cn.id = 'acc_' + Math.random().toString(36).substr(2, 9);
           if (allDeleted.has(cn.id)) return;
 
           let existente = estado.contas.find(c => c.id === cn.id);
-          if (!existente) {
-            estado.contas.push(cn);
-          } else {
+          if (existente) {
             existente.nome = cn.nome;
             existente.valor = cn.valor;
             existente.dia = cn.dia;
-            
             if (cn.pago !== undefined) {
               let incoming = cn.pago;
               let local = existente.pago;
-
               let incObj = (typeof incoming === 'object' && incoming !== null) ? incoming : { checked: Boolean(incoming), time: 0 };
               let locObj = (typeof local === 'object' && local !== null) ? local : { checked: Boolean(local), time: 0 };
-
               if (incObj.time >= locObj.time) {
                 existente.pago = incObj;
               }
             }
+            novaListaContas.push(existente);
+          } else {
+            novaListaContas.push(cn);
           }
         });
+        // Adiciona locais que não estavam na nuvem
+        estado.contas.forEach(c => {
+          if (!allDeleted.has(c.id) && !novaListaContas.some(nc => nc.id === c.id)) {
+            novaListaContas.push(c);
+          }
+        });
+        estado.contas = novaListaContas;
       }
       estado.contas = estado.contas.filter(c => !allDeleted.has(c.id));
 
       if (dadosNuvem.assinaturas) {
+        let novaListaSubs = [];
         dadosNuvem.assinaturas.forEach(sn => {
           if (!sn.id) sn.id = 'sub_' + Math.random().toString(36).substr(2, 9);
           if (allDeleted.has(sn.id)) return;
 
           let existente = estado.assinaturas.find(s => s.id === sn.id);
-          if (!existente) {
-            estado.assinaturas.push(sn);
-          } else {
+          if (existente) {
             existente.nome = sn.nome;
             existente.valor = sn.valor;
             existente.dia = sn.dia;
             existente.ciclo = sn.ciclo;
+            novaListaSubs.push(existente);
+          } else {
+            novaListaSubs.push(sn);
           }
         });
+        estado.assinaturas.forEach(s => {
+          if (!allDeleted.has(s.id) && !novaListaSubs.some(ns => ns.id === s.id)) {
+            novaListaSubs.push(s);
+          }
+        });
+        estado.assinaturas = novaListaSubs;
       }
       estado.assinaturas = estado.assinaturas.filter(s => !allDeleted.has(s.id));
 
@@ -909,7 +926,11 @@
       document.getElementById('labelValor').textContent = isContas ? 'Valor (Opcional)' : 'Valor da Assinatura (R$)';
       document.getElementById('labelDia').textContent = isContas ? 'Dia do Vencimento' : 'Dia da Cobrança';
       document.getElementById('grupoCiclo').style.display = isContas ? 'none' : 'block';
+      
+      // Botões específicos de edição (Excluir e Ordenar)
       document.getElementById('btnExcluir').style.display = isEdicao ? 'inline-block' : 'none';
+      document.getElementById('btnSubir').style.display = isEdicao ? 'inline-block' : 'none';
+      document.getElementById('btnDescer').style.display = isEdicao ? 'inline-block' : 'none';
     }
 
     function abrirModalNovo() {
@@ -937,6 +958,25 @@
     function fecharModal() { document.getElementById('modalForm').classList.remove('active'); }
     function fecharModalFora(e) { if (e.target.id === 'modalForm') fecharModal(); }
 
+    function moverItem(direcao) {
+      const index = parseInt(document.getElementById('editIndex').value, 10);
+      const lista = modoAtivo === 'contas' ? estado.contas : estado.assinaturas;
+      const novoIndex = index + direcao;
+
+      if (novoIndex < 0 || novoIndex >= lista.length) return; // Limites da lista
+
+      // Troca os itens de lugar na matriz
+      const temp = lista[index];
+      lista[index] = lista[novoIndex];
+      lista[novoIndex] = temp;
+
+      // Atualiza o índice no modal para continuar acompanhando o item
+      document.getElementById('editIndex').value = novoIndex;
+
+      salvarNoAparelho();
+      mostrarToast('Ordem atualizada');
+    }
+
     function salvarRegistro() {
       const index = parseInt(document.getElementById('editIndex').value, 10);
       const nome = document.getElementById('inputNome').value.trim();
@@ -962,7 +1002,6 @@
             pago: { checked: false, time: Date.now() }
           });
         }
-        estado.contas.sort((a, b) => a.dia - b.dia);
       } else {
         const valorAssinatura = parseFloat(valorRaw);
         if (isNaN(valorAssinatura) || valorAssinatura <= 0) { mostrarToast('Informe o valor da assinatura'); return; }
@@ -980,7 +1019,6 @@
             ciclo
           });
         }
-        estado.assinaturas.sort((a, b) => a.dia - b.dia);
       }
 
       salvarNoAparelho();
