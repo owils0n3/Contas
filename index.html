@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -574,12 +574,12 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'controle_ios_titanium_v9';
-    const SYNC_CONFIG_KEY = 'controle_sync_config_v9';
+    const STORAGE_KEY = 'controle_ios_titanium_v10';
+    const SYNC_CONFIG_KEY = 'controle_sync_config_v10';
 
     let modoAtivo = 'contas';
 
-    let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('controle_ios_titanium_v8')) || {
+    let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('controle_ios_titanium_v9')) || JSON.parse(localStorage.getItem('controle_ios_titanium_v8')) || {
       contas: [],
       assinaturas: [],
       parcelados: [],
@@ -597,7 +597,7 @@
     if (!estado.assinaturasOrderTime) estado.assinaturasOrderTime = 0;
     if (!estado.parceladosOrderTime) estado.parceladosOrderTime = 0;
 
-    let syncConfig = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || JSON.parse(localStorage.getItem('controle_sync_config_v8')) || {
+    let syncConfig = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || JSON.parse(localStorage.getItem('controle_sync_config_v9')) || JSON.parse(localStorage.getItem('controle_sync_config_v8')) || {
       token: '',
       gistId: ''
     };
@@ -1349,7 +1349,7 @@
           const statusTxt = pago ? 'Paga' : 'Pendente';
           texto += `${icone} ${c.nome} _(${statusTxt})_\n`;
         });
-        texto += `▸ *Total Contas Fixas:* ${formatarMoeda(somaTotalContas)}\n`;
+        texto += `▸ *Total Contas Fixas:* \`${formatarMoeda(somaTotalContas)}\`\n`;
       }
 
       texto += `\n━━━━━━━━━━━━━━\n\n`;
@@ -1362,10 +1362,9 @@
         estado.assinaturas.forEach(s => {
           const v = parseValor(s.valor) || 0;
           somaAss += (s.ciclo === 'anual' ? v / 12 : v);
-          const cicloLabel = s.ciclo === 'anual' ? 'Anual' : 'Mensal';
-          texto += `• ${s.nome}: *${formatarMoeda(v)}* _(${cicloLabel})_\n`;
+          texto += `• ${s.nome}: \`${formatarMoeda(v)}\`\n`;
         });
-        texto += `▸ *Subtotal Assinaturas:* ${formatarMoeda(somaAss)}/mês\n`;
+        texto += `▸ *Subtotal Assinaturas:* \`${formatarMoeda(somaAss)}\`/mês\n`;
       }
 
       texto += `\n━━━━━━━━━━━━━━\n\n`;
@@ -1380,21 +1379,15 @@
           somaPar += v;
           const pAtual = parseInt(p.parcelaAtual) || 1;
           const pTotal = parseInt(p.totalParcelas) || 1;
-          const fim = calcularPrevisaoTermino(pAtual, pTotal, true);
-          texto += `• ${p.nome}: *${formatarMoeda(v)}* _(${pAtual}/${pTotal} • Fim: ${fim})_\n`;
+          texto += `• ${p.nome}: \`${formatarMoeda(v)}\` _(${pAtual}/${pTotal})_\n`;
         });
-        texto += `▸ *Subtotal Parcelas:* ${formatarMoeda(somaPar)}/mês\n`;
+        texto += `▸ *Subtotal Parcelas:* \`${formatarMoeda(somaPar)}\`/mês\n`;
       }
 
       texto += `\n━━━━━━━━━━━━━━\n\n`;
 
-      const totalAssPar = somaAss + somaPar;
-      const totalGeral = somaTotalContas + totalAssPar;
-
       texto += `💰 *RESUMO DO CICLO*\n`;
-      texto += `• Contas Fixas: *${formatarMoeda(somaTotalContas)}*\n`;
-      texto += `• Assinaturas + Parcelas: *${formatarMoeda(totalAssPar)}*\n`;
-      texto += `📌 *TOTAL GERAL:* *${formatarMoeda(totalGeral)}*`;
+      texto += `\`${formatarMoeda(somaTotalContas)}\``;
 
       const urlWhatsApp = `https://wa.me/?text=${encodeURIComponent(texto)}`;
       window.open(urlWhatsApp, '_blank');
