@@ -581,12 +581,8 @@
         <label>GitHub Personal Access Token (ghp_...)</label>
         <input type="password" id="inputToken" placeholder="Cole seu token aqui">
       </div>
-      <div class="form-group">
-        <label>ID do Gist (Opcional - deixe vazio para criar um novo)</label>
-        <input type="text" id="inputGistId" placeholder="Ex: a1b2c3d4e5...">
-      </div>
       <p style="font-size:0.76rem; color:var(--text-secondary); margin-bottom:14px;">
-        Insira o mesmo token e ID de Gist no seu iPhone e no iPad para que eles sincronizem automaticamente ao abrir o app com internet.
+        Cole o mesmo token do GitHub tanto no iPhone quanto no iPad. O app reconhecerá o arquivo na nuvem automaticamente.
       </p>
       <div class="modal-footer">
         <button class="btn-modal btn-modal-save" onclick="salvarConfigSync()">Salvar e Sincronizar</button>
@@ -614,38 +610,114 @@
       gistId: ''
     };
 
+    // Renderiza o que está salvo localmente imediatamente para nunca sumir
+    renderizarTudo();
+
+    // Ao carregar, busca e funde os dados da nuvem em segundo plano
+    if (syncConfig.token) {
+      baixarDaNuvem();
+    }
+
     function salvarNoAparelho() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
       renderizarTudo();
-      enviarParaNuvem(); // Envia para o Gist sem conflito de download
+      enviarParaNuvem();
     }
 
-    // Baixa dados da nuvem (usado apenas ao abrir o app)
-    async function baixarDaNuvem() {
-      if (!syncConfig.token || !syncConfig.gistId) return;
+    // Procura o Gist automaticamente na conta do GitHub usando apenas o token
+    async function descobrirGistAutomaticamente() {
+      if (!syncConfig.token) return;
       try {
-        const headers = {
-          'Authorization': `token ${syncConfig.token}`,
-          'Accept': 'application/vnd.github.v3+json'
-        };
-        const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, { headers });
+        const res = await fetch('https://api.github.com/gists', {
+          headers: {
+            'Authorization': `token ${syncConfig.token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+        if (res.ok) {
+          const gists = await res.json();
+          const meuGist = gists.find(g => g.files && g.files['dados_controle.json']);
+          if (meuGist) {
+            syncConfig.gistId = meuGist.id;
+            localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
+          }
+        }
+      } catch (e) {
+        console.log('Erro ao procurar Gist:', e);
+      }
+    }
+
+    // Faz a fusão inteligente (Merge) para não perder dados locais
+    function mesclarDadosNuvem(dadosNuvem) {
+      if (!dadosNuvem) return;
+
+      // Mescla Contas
+      if (dadosNuvem.contas) {
+        dadosNuvem.contas.forEach(cn => {
+          let existente = estado.contas.find(c => c.nome.toLowerCase() === cn.nome.toLowerCase());
+          if (!existente) {
+            estado.contas.push(cn);
+          } else {
+            if (cn.pagos) {
+              if (!existente.pagos) existente.pagos = {};
+              for (let k in cn.pagos) {
+                if (cn.pagos[k]) existente.pagos[k] = true;
+              }
+            }
+            if (cn.valor !== null && cn.valor !== undefined && !existente.valor) {
+              existente.valor = cn.valor;
+            }
+          }
+        });
+      }
+
+      // Mescla Assinaturas
+      if (dadosNuvem.assinaturas) {
+        dadosNuvem.assinaturas.forEach(sn => {
+          let existente = estado.assinaturas.find(s => s.nome.toLowerCase() === sn.nome.toLowerCase());
+          if (!existente) {
+            estado.assinaturas.push(sn);
+          }
+        });
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+      renderizarTudo();
+    }
+
+    async function baixarDaNuvem() {
+      if (!syncConfig.token) return;
+      if (!syncConfig.gistId) {
+        await descobrirGistAutomaticamente();
+      }
+      if (!syncConfig.gistId) return;
+
+      try {
+        const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, {
+          headers: {
+            'Authorization': `token ${syncConfig.token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
         if (res.ok) {
           const data = await res.json();
           const arquivo = data.files['dados_controle.json'];
           if (arquivo) {
-            estado = JSON.parse(arquivo.content);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
-            renderizarTudo();
+            const dadosNuvem = JSON.parse(arquivo.content);
+            mesclarDadosNuvem(dadosNuvem);
           }
         }
       } catch (e) {
-        console.log('Modo offline:', e);
+        console.log('Modo offline ou erro ao baixar:', e);
       }
     }
 
-    // Envia dados para a nuvem (apenas upload)
     async function enviarParaNuvem() {
       if (!syncConfig.token) return;
+      if (!syncConfig.gistId) {
+        await descobrirGistAutomaticamente();
+      }
+
       try {
         const headers = {
           'Authorization': `token ${syncConfig.token}`,
@@ -688,7 +760,6 @@
 
     function abrirConfigSync() {
       document.getElementById('inputToken').value = syncConfig.token || '';
-      document.getElementById('inputGistId').value = syncConfig.gistId || '';
       document.getElementById('modalSync').classList.add('active');
     }
     function fecharConfigSync() {
@@ -696,16 +767,16 @@
     }
     function salvarConfigSync() {
       syncConfig.token = document.getElementById('inputToken').value.trim();
-      syncConfig.gistId = document.getElementById('inputGistId').value.trim();
+      syncConfig.gistId = ''; // Limpa para forçar a descoberta automática
       localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
       fecharConfigSync();
-      mostrarToast('Sync configurado! Enviando dados...');
-      enviarParaNuvem();
+      mostrarToast('Sync configurado! Sincronizando...');
+      baixarDaNuvem().then(() => enviarParaNuvem());
     }
 
     function alternarModo(novoModo) {
       modoAtivo = novoModo;
-      const isContas = modoAtivo === 'contas';
+      const isContas = novoModo === 'contas';
 
       document.getElementById('segContas').classList.toggle('active', isContas);
       document.getElementById('segAssinaturas').classList.toggle('active', !isContas);
@@ -967,12 +1038,6 @@
       toast.textContent = msg;
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 2600);
-    }
-
-    // Inicialização: Renderiza local e baixa da nuvem se configurado
-    renderizarTudo();
-    if (syncConfig.token && syncConfig.gistId) {
-      baixarDaNuvem();
     }
   </script>
 </body>
