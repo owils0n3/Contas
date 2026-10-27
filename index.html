@@ -9,6 +9,11 @@
   <meta name="apple-mobile-web-app-title" content="Controle">
   <meta name="theme-color" content="#F2F2F7">
 
+  <!-- Bibliotecas do Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-database-compat.js"></script>
+
   <style>
     :root {
       --bg-primary: #F2F2F7;
@@ -393,6 +398,13 @@
     }
     .modal-overlay.active { display: flex; }
 
+    /* Estilo Específico para o Overlay de Login */
+    #loginOverlay {
+      background: var(--bg-primary); 
+      z-index: 2000;
+      align-items: center;
+    }
+
     .modal-sheet {
       background: var(--bg-elevated); width: 100%; max-width: 460px;
       border-top-left-radius: 22px; border-top-right-radius: 22px;
@@ -443,66 +455,88 @@
 
   <div id="toast">Pronto</div>
 
-  <header>
-    <div class="app-shell">
-      <div class="nav-bar">
-        <div class="brand-title">
-          <span>Gestão Pessoal</span>
-          <h1 id="mainTitle">Contas da Casa</h1>
-        </div>
-        <div class="nav-actions">
-          <button class="btn-ios btn-ios-secondary" onclick="sincronizarManual()" title="Sincronizar com a nuvem">🔄 Sincronizar</button>
-          <button class="btn-ios btn-ios-secondary" onclick="abrirConfigSync()" title="Configurar Token">⚙️ Token</button>
-          <button class="btn-ios btn-ios-secondary" onclick="enviarRelatorioWhatsApp()" title="Enviar relatório para Rayssa">📄 Relatório</button>
-          <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()"><span id="btnNovoTexto">+ Nova Conta</span></button>
-        </div>
+  <!-- Tela de Login Firebase -->
+  <div id="loginOverlay" class="modal-overlay active">
+    <div class="modal-sheet" style="margin: 20px; border-radius: 22px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="font-size: 1.45rem; color: var(--text-primary); margin-bottom: 6px;">Acesso Restrito</h2>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Faça login para sincronizar suas finanças.</p>
       </div>
-
-      <div class="segmented-wrapper">
-        <div class="segmented-control">
-          <button class="seg-btn active" id="segContas" onclick="alternarModo('contas')">Contas da Casa</button>
-          <button class="seg-btn" id="segAssinaturas" onclick="alternarModo('assinaturas')">Assinaturas & Parcelas</button>
-        </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="emailLogin" placeholder="Seu e-mail cadastrado">
       </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="senhaLogin" placeholder="Sua senha">
+      </div>
+      <button class="btn-modal btn-modal-save" style="width: 100%; margin-top: 15px;" onclick="fazerLogin()">Entrar</button>
     </div>
-  </header>
+  </div>
 
-  <main class="main-container">
-    <section id="viewContas">
-      <div class="cycle-bar-wrapper">
-        <div class="status-counter" id="progressoGeralDisplay">0 de 0 pagas</div>
-        <button class="btn-ios btn-ios-secondary" onclick="zerarCiclo()" title="Zerar checks para o próximo ciclo de pagamento">🔄 Novo Ciclo</button>
-      </div>
+  <!-- Conteúdo Principal do App (Escondido até fazer login) -->
+  <div id="appContent" style="display: none;">
+    <header>
+      <div class="app-shell">
+        <div class="nav-bar">
+          <div class="brand-title">
+            <span>Gestão Pessoal</span>
+            <h1 id="mainTitle">Contas da Casa</h1>
+          </div>
+          <div class="nav-actions">
+            <button class="btn-ios btn-ios-secondary" onclick="sincronizarManual()" title="Forçar sincronização">🔄 Sincronizar</button>
+            <button class="btn-ios btn-ios-secondary" onclick="fazerLogout()" title="Sair da conta">🚪 Sair</button>
+            <button class="btn-ios btn-ios-secondary" onclick="enviarRelatorioWhatsApp()" title="Enviar relatório para Rayssa">📄 Relatório</button>
+            <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()"><span id="btnNovoTexto">+ Nova Conta</span></button>
+          </div>
+        </div>
 
-      <div class="cards-grid" id="gridContas"></div>
-
-      <div class="subs-summary-card">
-        <div class="summary-metric">
-          <small>Total das Contas com Valor Definido</small>
-          <h2 id="somaTotalContas">R$ 0,00</h2>
+        <div class="segmented-wrapper">
+          <div class="segmented-control">
+            <button class="seg-btn active" id="segContas" onclick="alternarModo('contas')">Contas da Casa</button>
+            <button class="seg-btn" id="segAssinaturas" onclick="alternarModo('assinaturas')">Assinaturas & Parcelas</button>
+          </div>
         </div>
       </div>
-    </section>
+    </header>
 
-    <section id="viewAssinaturas" style="display: none;">
-      <div class="subs-summary-card">
-        <div class="summary-metric" style="width: 100%;">
-          <small>Custo Mensal (Assinaturas + Parcelas)</small>
-          <h3 id="composicaoSubParcelas">R$ 0,00 + R$ 0,00</h3>
+    <main class="main-container">
+      <section id="viewContas">
+        <div class="cycle-bar-wrapper">
+          <div class="status-counter" id="progressoGeralDisplay">0 de 0 pagas</div>
+          <button class="btn-ios btn-ios-secondary" onclick="zerarCiclo()" title="Zerar checks para o próximo ciclo de pagamento">🔄 Novo Ciclo</button>
         </div>
-        <div class="summary-metric" style="width: 100%; text-align: right;">
-          <small>Valor Total</small>
-          <h2 id="somaMensalSubs">R$ 0,00</h2>
+
+        <div class="cards-grid" id="gridContas"></div>
+
+        <div class="subs-summary-card">
+          <div class="summary-metric">
+            <small>Total das Contas com Valor Definido</small>
+            <h2 id="somaTotalContas">R$ 0,00</h2>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="section-title">Assinaturas e Serviços</div>
-      <div class="cards-grid" id="gridAssinaturas" style="margin-bottom: 24px;"></div>
+      <section id="viewAssinaturas" style="display: none;">
+        <div class="subs-summary-card">
+          <div class="summary-metric" style="width: 100%;">
+            <small>Custo Mensal (Assinaturas + Parcelas)</small>
+            <h3 id="composicaoSubParcelas">R$ 0,00 + R$ 0,00</h3>
+          </div>
+          <div class="summary-metric" style="width: 100%; text-align: right;">
+            <small>Valor Total</small>
+            <h2 id="somaMensalSubs">R$ 0,00</h2>
+          </div>
+        </div>
 
-      <div class="section-title">Compras Parceladas (Toque no ✓ para avançar a parcela)</div>
-      <div class="cards-grid" id="gridParcelados"></div>
-    </section>
-  </main>
+        <div class="section-title">Assinaturas e Serviços</div>
+        <div class="cards-grid" id="gridAssinaturas" style="margin-bottom: 24px;"></div>
+
+        <div class="section-title">Compras Parceladas (Toque no ✓ para avançar a parcela)</div>
+        <div class="cards-grid" id="gridParcelados"></div>
+      </section>
+    </main>
+  </div>
 
   <!-- Modal Adicionar / Editar -->
   <div id="modalForm" class="modal-overlay" onclick="fecharModalFora(event)">
@@ -553,127 +587,117 @@
     </div>
   </div>
 
-  <!-- Modal Configuração Gist Sync -->
-  <div id="modalSync" class="modal-overlay" onclick="if(event.target.id==='modalSync') fecharConfigSync()">
-    <div class="modal-sheet">
-      <div class="modal-header">
-        <h3>Configurar Token do GitHub</h3>
-        <button class="close-btn" onclick="fecharConfigSync()">✕</button>
-      </div>
-      <div class="form-group">
-        <label>GitHub Personal Access Token (ghp_...)</label>
-        <input type="password" id="inputToken" placeholder="Cole seu token aqui">
-      </div>
-      <p style="font-size:0.76rem; color:var(--text-secondary); margin-bottom:14px;">
-        Cole o mesmo token do GitHub tanto no iPhone quanto no iPad.
-      </p>
-      <div class="modal-footer">
-        <button class="btn-modal btn-modal-save" onclick="salvarConfigSync()">Salvar Token</button>
-      </div>
-    </div>
-  </div>
-
   <script>
-    const STORAGE_KEY = 'controle_ios_titanium_v10';
-    const SYNC_CONFIG_KEY = 'controle_sync_config_v10';
+    // -----------------------------------------------------
+    // 1. CONFIGURAÇÃO E INICIALIZAÇÃO DO FIREBASE
+    // -----------------------------------------------------
+    const firebaseConfig = {
+      apiKey: "AIzaSyCTuNspVOTou6rKTcgULJ0NcK76mkLSqJg",
+      authDomain: "financas-wilson.firebaseapp.com",
+      databaseURL: "https://financas-wilson-default-rtdb.firebaseio.com",
+      projectId: "financas-wilson",
+      storageBucket: "financas-wilson.firebasestorage.app",
+      messagingSenderId: "767789780763",
+      appId: "1:767789780763:web:de51ceedccbe17e30c4dbe"
+    };
 
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+    
+    let userId = null;
+    let isSyncing = false; // Bloqueia loop infinito durante sincronização em tempo real
+    let dbListener = null;
+
+    const STORAGE_KEY = 'controle_ios_titanium_v10';
     let modoAtivo = 'contas';
 
-    let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(localStorage.getItem('controle_ios_titanium_v9')) || JSON.parse(localStorage.getItem('controle_ios_titanium_v8')) || {
-      contas: [],
-      assinaturas: [],
-      parcelados: [],
-      deletedIds: [],
-      contasOrderTime: 0,
-      assinaturasOrderTime: 0,
-      parceladosOrderTime: 0
+    let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+      contas: [], assinaturas: [], parcelados: [], deletedIds: [],
+      contasOrderTime: 0, assinaturasOrderTime: 0, parceladosOrderTime: 0
     };
 
     if (estado.contas) estado.contas.forEach(c => { if (!c.id) c.id = 'acc_' + Math.random().toString(36).substr(2, 9); });
     if (estado.assinaturas) estado.assinaturas.forEach(s => { if (!s.id) s.id = 'sub_' + Math.random().toString(36).substr(2, 9); });
     if (estado.parcelados) estado.parcelados.forEach(p => { if (!p.id) p.id = 'par_' + Math.random().toString(36).substr(2, 9); });
     if (!estado.deletedIds) estado.deletedIds = [];
-    if (!estado.contasOrderTime) estado.contasOrderTime = 0;
-    if (!estado.assinaturasOrderTime) estado.assinaturasOrderTime = 0;
-    if (!estado.parceladosOrderTime) estado.parceladosOrderTime = 0;
-
-    let syncConfig = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || JSON.parse(localStorage.getItem('controle_sync_config_v9')) || JSON.parse(localStorage.getItem('controle_sync_config_v8')) || {
-      token: '',
-      gistId: ''
-    };
 
     renderizarTudo();
 
-    if (syncConfig.token) {
-      baixarDaNuvem();
+    // -----------------------------------------------------
+    // 2. AUTENTICAÇÃO E TEMPO REAL
+    // -----------------------------------------------------
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        userId = user.uid;
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('appContent').style.display = 'block';
+        iniciarSincronizacaoTempoReal();
+      } else {
+        userId = null;
+        if (dbListener) { dbListener.off(); dbListener = null; }
+        document.getElementById('loginOverlay').style.display = 'flex';
+        document.getElementById('appContent').style.display = 'none';
+      }
+    });
+
+    function fazerLogin() {
+      const email = document.getElementById('emailLogin').value.trim();
+      const senha = document.getElementById('senhaLogin').value.trim();
+      if (!email || !senha) { mostrarToast('Preencha e-mail e senha.'); return; }
+      
+      mostrarToast('Autenticando...');
+      auth.signInWithEmailAndPassword(email, senha)
+        .then(() => { mostrarToast('Login realizado com sucesso!'); })
+        .catch(err => { mostrarToast('Erro: ' + err.message); });
     }
 
+    function fazerLogout() {
+      auth.signOut();
+      mostrarToast('Você saiu.');
+    }
+
+    function iniciarSincronizacaoTempoReal() {
+      dbListener = db.ref('usuarios/' + userId + '/dados');
+      dbListener.on('value', snapshot => {
+        if (snapshot.exists()) {
+          isSyncing = true; // Impede que o app reenvie a mesma informação e crie loop
+          mesclarDadosNuvem(snapshot.val());
+          isSyncing = false;
+        } else {
+          // Se o banco estiver vazio (primeiro acesso pós-login), envia os dados locais
+          enviarParaNuvem();
+        }
+      });
+    }
+
+    async function enviarParaNuvem() {
+      if (!userId || isSyncing) return;
+      try {
+        await db.ref('usuarios/' + userId + '/dados').set(estado);
+      } catch (e) {
+        console.error('Erro ao enviar para Firebase', e);
+      }
+    }
+
+    async function sincronizarManual() {
+      if (!userId) return;
+      mostrarToast('Sincronizando...');
+      const snapshot = await db.ref('usuarios/' + userId + '/dados').get();
+      if (snapshot.exists()) {
+        mesclarDadosNuvem(snapshot.val());
+      }
+      await enviarParaNuvem();
+      mostrarToast('Tudo atualizado!');
+    }
+
+    // -----------------------------------------------------
+    // 3. LÓGICA DE NEGÓCIO E MESCLAGEM
+    // -----------------------------------------------------
     function salvarNoAparelho() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
       renderizarTudo();
-      enviarParaNuvem();
-    }
-
-    async function descobrirGistAutomaticamente() {
-      if (!syncConfig.token) return;
-      try {
-        const res = await fetch('https://api.github.com/gists', {
-          headers: {
-            'Authorization': `token ${syncConfig.token}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        });
-        if (res.ok) {
-          const gists = await res.json();
-          const meuGist = gists.find(g => g.files && g.files['dados_controle.json']);
-          if (meuGist) {
-            syncConfig.gistId = meuGist.id;
-            localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
-          }
-        }
-      } catch (e) {
-        console.log('Erro ao procurar Gist:', e);
-      }
-    }
-
-    function isPago(conta) {
-      if (!conta.pago) return false;
-      let val = conta.pago;
-      if (typeof val === 'object' && val !== null) {
-        return Boolean(val.checked);
-      }
-      return Boolean(val);
-    }
-
-    function parseValor(valorStr) {
-      if (valorStr === null || valorStr === undefined || valorStr === '') return null;
-      let limpo = String(valorStr).replace(',', '.').trim();
-      let num = parseFloat(limpo);
-      return isNaN(num) ? null : num;
-    }
-
-    function calcularPrevisaoTermino(parcelaAtual, totalParcelas, formatoCurto = false) {
-      let restantes = totalParcelas - parcelaAtual;
-      if (restantes < 0) restantes = 0;
-      const d = new Date();
-      d.setMonth(d.getMonth() + restantes);
-      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-      const ano = formatoCurto ? String(d.getFullYear()).slice(-2) : d.getFullYear();
-      return `${meses[d.getMonth()]}/${ano}`;
-    }
-
-    function tratarMudancaTipoRegistro() {
-      const tipo = document.getElementById('inputCiclo').value;
-      const labelDia = document.getElementById('labelDia');
-      const grupoTotal = document.getElementById('grupoTotalParcelas');
-      
-      if (tipo === 'parcelado') {
-        labelDia.textContent = 'Parcela Atual (Ex: 1)';
-        grupoTotal.style.display = 'block';
-      } else {
-        labelDia.textContent = 'Dia de Vencimento';
-        grupoTotal.style.display = 'none';
-      }
+      enviarParaNuvem(); // Sempre que houver uma ação sua, dispara para o Firebase
     }
 
     function mesclarDadosNuvem(dadosNuvem) {
@@ -682,7 +706,7 @@
       let allDeleted = new Set([...(estado.deletedIds || []), ...(dadosNuvem.deletedIds || [])]);
       estado.deletedIds = Array.from(allDeleted);
 
-      // Sincronização de Contas
+      // Mesclagem de Contas
       if (dadosNuvem.contas) {
         let mapaLocal = new Map(estado.contas.map(c => [c.id, c]));
         let novaListaContas = [];
@@ -716,7 +740,7 @@
       }
       estado.contas = estado.contas.filter(c => !allDeleted.has(c.id));
 
-      // Sincronização de Assinaturas
+      // Mesclagem de Assinaturas
       if (dadosNuvem.assinaturas) {
         let mapaLocalSubs = new Map(estado.assinaturas.map(s => [s.id, s]));
         let novaListaSubs = [];
@@ -746,7 +770,7 @@
       }
       estado.assinaturas = estado.assinaturas.filter(s => !allDeleted.has(s.id));
 
-      // Sincronização de Parcelados
+      // Mesclagem de Parcelados
       if (dadosNuvem.parcelados) {
         let mapaLocalPar = new Map(estado.parcelados.map(p => [p.id, p]));
         let novaListaPar = [];
@@ -784,104 +808,43 @@
       renderizarTudo();
     }
 
-    async function baixarDaNuvem() {
-      if (!syncConfig.token) return;
-      if (!syncConfig.gistId) {
-        await descobrirGistAutomaticamente();
-      }
-      if (!syncConfig.gistId) return;
-
-      try {
-        const res = await fetch(`https://api.github.com/gists/${syncConfig.gistId}`, {
-          headers: {
-            'Authorization': `token ${syncConfig.token}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const arquivo = data.files['dados_controle.json'];
-          if (arquivo) {
-            const dadosNuvem = JSON.parse(arquivo.content);
-            mesclarDadosNuvem(dadosNuvem);
-          }
-        }
-      } catch (e) {
-        console.log('Modo offline ou erro ao baixar:', e);
-      }
+    // (O restante do código abaixo mantém todas as suas regras visuais intactas)
+    function isPago(conta) {
+      if (!conta.pago) return false;
+      let val = conta.pago;
+      if (typeof val === 'object' && val !== null) { return Boolean(val.checked); }
+      return Boolean(val);
     }
 
-    async function enviarParaNuvem() {
-      if (!syncConfig.token) return;
-      if (!syncConfig.gistId) {
-        await descobrirGistAutomaticamente();
+    function parseValor(valorStr) {
+      if (valorStr === null || valorStr === undefined || valorStr === '') return null;
+      let limpo = String(valorStr).replace(',', '.').trim();
+      let num = parseFloat(limpo);
+      return isNaN(num) ? null : num;
+    }
+
+    function calcularPrevisaoTermino(parcelaAtual, totalParcelas, formatoCurto = false) {
+      let restantes = totalParcelas - parcelaAtual;
+      if (restantes < 0) restantes = 0;
+      const d = new Date();
+      d.setMonth(d.getMonth() + restantes);
+      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const ano = formatoCurto ? String(d.getFullYear()).slice(-2) : d.getFullYear();
+      return `${meses[d.getMonth()]}/${ano}`;
+    }
+
+    function tratarMudancaTipoRegistro() {
+      const tipo = document.getElementById('inputCiclo').value;
+      const labelDia = document.getElementById('labelDia');
+      const grupoTotal = document.getElementById('grupoTotalParcelas');
+      
+      if (tipo === 'parcelado') {
+        labelDia.textContent = 'Parcela Atual (Ex: 1)';
+        grupoTotal.style.display = 'block';
+      } else {
+        labelDia.textContent = 'Dia de Vencimento';
+        grupoTotal.style.display = 'none';
       }
-
-      try {
-        const headers = {
-          'Authorization': `token ${syncConfig.token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
-        };
-        const body = {
-          description: "Sincronização Automática Gestor Casa & Assinaturas",
-          files: {
-            "dados_controle.json": {
-              content: JSON.stringify(estado, null, 2)
-            }
-          }
-        };
-
-        let url = 'https://api.github.com/gists';
-        let method = 'POST';
-        if (syncConfig.gistId) {
-          url = `https://api.github.com/gists/${syncConfig.gistId}`;
-          method = 'PATCH';
-        }
-
-        const resGist = await fetch(url, {
-          method: method,
-          headers: headers,
-          body: JSON.stringify(body)
-        });
-
-        if (resGist.ok) {
-          const dataGist = await resGist.json();
-          if (!syncConfig.gistId) {
-            syncConfig.gistId = dataGist.id;
-            localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
-          }
-        }
-      } catch (e) {
-        console.log('Erro ao enviar para nuvem:', e);
-      }
-    }
-
-    async function sincronizarManual() {
-      if (!syncConfig.token) {
-        abrirConfigSync();
-        return;
-      }
-      mostrarToast('Sincronizando com a nuvem...');
-      await baixarDaNuvem();
-      await enviarParaNuvem();
-      mostrarToast('Tudo atualizado!');
-    }
-
-    function abrirConfigSync() {
-      document.getElementById('inputToken').value = syncConfig.token || '';
-      document.getElementById('modalSync').classList.add('active');
-    }
-    function fecharConfigSync() {
-      document.getElementById('modalSync').classList.remove('active');
-    }
-    function salvarConfigSync() {
-      syncConfig.token = document.getElementById('inputToken').value.trim();
-      syncConfig.gistId = ''; 
-      localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
-      fecharConfigSync();
-      mostrarToast('Token salvo! Baixando dados...');
-      baixarDaNuvem();
     }
 
     function alternarModo(novoModo) {
@@ -903,18 +866,13 @@
     function zerarCiclo() {
       if (confirm('Deseja desmarcar todas as contas para iniciar um novo ciclo?')) {
         let now = Date.now();
-        estado.contas.forEach(c => {
-          c.pago = { checked: false, time: now };
-        });
+        estado.contas.forEach(c => { c.pago = { checked: false, time: now }; });
         salvarNoAparelho();
         mostrarToast('Novo ciclo iniciado');
       }
     }
 
-    function renderizarTudo() {
-      renderizarContas();
-      renderizarAssinaturas();
-    }
+    function renderizarTudo() { renderizarContas(); renderizarAssinaturas(); }
 
     function renderizarContas() {
       const totalContas = estado.contas.length;
@@ -968,23 +926,17 @@
     function renderizarAssinaturas() {
       const gridSubs = document.getElementById('gridAssinaturas');
       const gridPar = document.getElementById('gridParcelados');
-      gridSubs.innerHTML = '';
-      gridPar.innerHTML = '';
+      gridSubs.innerHTML = ''; gridPar.innerHTML = '';
 
-      let somaAssinaturasMes = 0;
-      let somaParceladosMes = 0;
+      let somaAssinaturasMes = 0; let somaParceladosMes = 0;
 
-      // Renderiza Assinaturas
       if (estado.assinaturas.length === 0) {
         gridSubs.innerHTML = `<div class="empty-state"><p>Nenhuma assinatura cadastrada.</p></div>`;
       } else {
         estado.assinaturas.forEach((sub, index) => {
           const valorNum = parseValor(sub.valor) || 0;
-          if (sub.ciclo === 'anual') {
-            somaAssinaturasMes += valorNum / 12;
-          } else {
-            somaAssinaturasMes += valorNum;
-          }
+          if (sub.ciclo === 'anual') somaAssinaturasMes += valorNum / 12;
+          else somaAssinaturasMes += valorNum;
 
           const valorExibido = valorNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
           const sufixoCiclo = sub.ciclo === 'anual' ? '/ano' : '/mês';
@@ -1012,7 +964,6 @@
         });
       }
 
-      // Renderiza Parcelados
       if (estado.parcelados.length === 0) {
         gridPar.innerHTML = `<div class="empty-state"><p>Nenhuma compra parcelada cadastrada.</p></div>`;
       } else {
@@ -1385,7 +1336,6 @@
       }
 
       texto += `\n━━━━━━━━━━━━━━\n\n`;
-
       texto += `💰 *RESUMO DO CICLO*\n`;
       texto += `\`${formatarMoeda(somaTotalContas)}\``;
 
