@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -398,11 +398,17 @@
     }
     .modal-overlay.active { display: flex; }
 
-    /* Estilo Específico para o Overlay de Login */
+    /* Estilo Específico para o Overlay de Autenticação */
     #loginOverlay {
       background: var(--bg-primary); 
       z-index: 2000;
       align-items: center;
+    }
+
+    .auth-divider {
+      height: 1px;
+      background: var(--border-hairline);
+      margin: 18px 0;
     }
 
     .modal-sheet {
@@ -446,7 +452,7 @@
       position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-80px);
       background: var(--graphite-dark); color: #FFFFFF; padding: 10px 18px; border-radius: 99px;
       font-size: 0.82rem; font-weight: 600; box-shadow: 0 8px 20px rgba(0,0,0,0.18);
-      transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 300; white-space: nowrap;
+      transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 3000; white-space: nowrap;
     }
     #toast.show { transform: translateX(-50%) translateY(0); }
   </style>
@@ -455,25 +461,52 @@
 
   <div id="toast">Pronto</div>
 
-  <!-- Tela de Login Firebase -->
+  <!-- Overlay de Autenticação (Login / Criar Conta) -->
   <div id="loginOverlay" class="modal-overlay active">
     <div class="modal-sheet" style="margin: 20px; border-radius: 22px;">
-      <div style="text-align: center; margin-bottom: 24px;">
-        <h2 style="font-size: 1.45rem; color: var(--text-primary); margin-bottom: 6px;">Acesso Restrito</h2>
-        <p style="font-size: 0.85rem; color: var(--text-secondary);">Faça login ou crie uma conta para gerenciar suas finanças.</p>
+      
+      <!-- TELA 1: LOGIN -->
+      <div id="boxLogin">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="font-size: 1.45rem; color: var(--text-primary); margin-bottom: 6px;">Acesso Restrito</h2>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">Entre com sua conta para acessar suas finanças.</p>
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="emailLogin" placeholder="Digite seu e-mail">
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="senhaLogin" placeholder="Digite sua senha">
+        </div>
+        <button class="btn-modal btn-modal-save" style="width: 100%; margin-top: 8px;" onclick="fazerLogin()">Entrar</button>
+        
+        <div class="auth-divider"></div>
+        
+        <button class="btn-modal btn-modal-order" style="width: 100%;" onclick="mostrarFormularioCadastro()">Criar Nova Conta</button>
       </div>
-      <div class="form-group">
-        <label>E-mail</label>
-        <input type="email" id="emailLogin" placeholder="Ex: wilson@email.com">
+
+      <!-- TELA 2: FORMULÁRIO DE CADASTRO -->
+      <div id="boxCadastro" style="display: none;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="font-size: 1.45rem; color: var(--text-primary); margin-bottom: 6px;">Criar Nova Conta</h2>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">Cadastre seu e-mail e senha para iniciar um painel em branco.</p>
+        </div>
+        <div class="form-group">
+          <label>Seu E-mail</label>
+          <input type="email" id="emailCadastro" placeholder="Ex: nome@email.com">
+        </div>
+        <div class="form-group">
+          <label>Crie uma Senha</label>
+          <input type="password" id="senhaCadastro" placeholder="Mínimo de 6 caracteres">
+        </div>
+        <button class="btn-modal btn-modal-save" style="width: 100%; margin-top: 8px;" onclick="criarConta()">Finalizar Cadastro</button>
+        
+        <div class="auth-divider"></div>
+        
+        <button class="btn-modal btn-modal-order" style="width: 100%;" onclick="mostrarFormularioLogin()">Voltar para o Login</button>
       </div>
-      <div class="form-group">
-        <label>Senha</label>
-        <input type="password" id="senhaLogin" placeholder="Mínimo 6 caracteres">
-      </div>
-      <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <button class="btn-modal btn-modal-order" style="flex: 1;" onclick="criarConta()">Criar Conta</button>
-        <button class="btn-modal btn-modal-save" style="flex: 1;" onclick="fazerLogin()">Entrar</button>
-      </div>
+
     </div>
   </div>
 
@@ -487,7 +520,6 @@
             <h1 id="mainTitle">Contas da Casa</h1>
           </div>
           <div class="nav-actions">
-            <!-- Botão de Sincronizar Removido -->
             <button class="btn-ios btn-ios-secondary" onclick="fazerLogout()" title="Sair da conta">🚪 Sair</button>
             <button class="btn-ios btn-ios-secondary" onclick="enviarRelatorioWhatsApp()" title="Enviar relatório">📄 Relatório</button>
             <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()"><span id="btnNovoTexto">+ Nova Conta</span></button>
@@ -609,61 +641,130 @@
     const db = firebase.database();
     
     let userId = null;
-    let isSyncing = false; // Bloqueia loop infinito durante sincronização em tempo real
+    let isSyncing = false;
     let dbListener = null;
+    let emProcessoDeCadastro = false; // Impede login direto ao criar conta
 
-    const STORAGE_KEY = 'controle_ios_titanium_v10';
     let modoAtivo = 'contas';
 
-    let estado = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-      contas: [], assinaturas: [], parcelados: [], deletedIds: [],
-      contasOrderTime: 0, assinaturasOrderTime: 0, parceladosOrderTime: 0
-    };
+    function criarEstadoVazio() {
+      return {
+        contas: [],
+        assinaturas: [],
+        parcelados: [],
+        deletedIds: [],
+        contasOrderTime: 0,
+        assinaturasOrderTime: 0,
+        parceladosOrderTime: 0
+      };
+    }
 
-    if (estado.contas) estado.contas.forEach(c => { if (!c.id) c.id = 'acc_' + Math.random().toString(36).substr(2, 9); });
-    if (estado.assinaturas) estado.assinaturas.forEach(s => { if (!s.id) s.id = 'sub_' + Math.random().toString(36).substr(2, 9); });
-    if (estado.parcelados) estado.parcelados.forEach(p => { if (!p.id) p.id = 'par_' + Math.random().toString(36).substr(2, 9); });
-    if (!estado.deletedIds) estado.deletedIds = [];
+    function obterChaveStorage(uid) {
+      return 'controle_firebase_user_' + uid;
+    }
 
+    let estado = criarEstadoVazio();
     renderizarTudo();
 
     // -----------------------------------------------------
-    // 2. AUTENTICAÇÃO E TEMPO REAL
+    // 2. NAVEGAÇÃO ENTRE LOGIN E CADASTRO
+    // -----------------------------------------------------
+    function mostrarFormularioCadastro() {
+      document.getElementById('boxLogin').style.display = 'none';
+      document.getElementById('boxCadastro').style.display = 'block';
+      document.getElementById('emailCadastro').value = '';
+      document.getElementById('senhaCadastro').value = '';
+    }
+
+    function mostrarFormularioLogin(emailPreenchido = '') {
+      document.getElementById('boxCadastro').style.display = 'none';
+      document.getElementById('boxLogin').style.display = 'block';
+      if (emailPreenchido) {
+        document.getElementById('emailLogin').value = emailPreenchido;
+        document.getElementById('senhaLogin').value = '';
+      }
+    }
+
+    // -----------------------------------------------------
+    // 3. AUTENTICAÇÃO E ISOLAMENTO DE DADOS
     // -----------------------------------------------------
     auth.onAuthStateChanged(user => {
+      // Se estiver criando uma conta, aguarda finalizar e deslogar para ir à tela de login
+      if (emProcessoDeCadastro) return;
+
       if (user) {
         userId = user.uid;
+        
+        // Carrega apenas o cache exclusivo deste usuário (ou vazio)
+        const salvoLocal = localStorage.getItem(obterChaveStorage(userId));
+        estado = salvoLocal ? JSON.parse(salvoLocal) : criarEstadoVazio();
+        renderizarTudo();
+
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('appContent').style.display = 'block';
         document.getElementById('emailLogin').value = '';
         document.getElementById('senhaLogin').value = '';
+        
         iniciarSincronizacaoTempoReal();
       } else {
         userId = null;
         if (dbListener) { dbListener.off(); dbListener = null; }
+        
+        // Limpa os dados da tela ao sair
+        estado = criarEstadoVazio();
+        renderizarTudo();
+
         document.getElementById('loginOverlay').style.display = 'flex';
         document.getElementById('appContent').style.display = 'none';
       }
     });
 
-    function criarConta() {
-      const email = document.getElementById('emailLogin').value.trim();
-      const senha = document.getElementById('senhaLogin').value.trim();
-      if (!email || !senha) { mostrarToast('Preencha e-mail e senha para criar a conta.'); return; }
-      if (senha.length < 6) { mostrarToast('A senha deve ter no mínimo 6 caracteres.'); return; }
+    async function criarConta() {
+      const email = document.getElementById('emailCadastro').value.trim();
+      const senha = document.getElementById('senhaCadastro').value.trim();
+      
+      if (!email || !senha) {
+        mostrarToast('Preencha e-mail e senha para cadastrar.');
+        return;
+      }
+      if (senha.length < 6) {
+        mostrarToast('A senha deve ter no mínimo 6 caracteres.');
+        return;
+      }
 
-      mostrarToast('Criando conta...');
-      auth.createUserWithEmailAndPassword(email, senha)
-        .then(() => {
-          mostrarToast('Conta criada com sucesso!');
-        })
-        .catch(err => {
-          if(err.code === 'auth/email-already-in-use') {
-            mostrarToast('Este e-mail já está cadastrado.');
-          } else {
-            mostrarToast('Erro: ' + err.message);
-          }
+      emProcessoDeCadastro = true;
+      mostrarToast('Criando sua conta...');
+
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, senha);
+        const novoUid = cred.user.uid;
+
+        // Garante que o cofre local e na nuvem do novo usuário nasça 100% em branco
+        const estadoLimpo = criarEstadoVazio();
+        localStorage.setItem(obterChaveStorage(novoUid), JSON.stringify(estadoLimpo));
+        
+        await db.ref('usuarios/' + novoUid + '/dados').set({
+          contasOrderTime: 0,
+          assinaturasOrderTime: 0,
+          parceladosOrderTime: 0
         });
+
+        // Desloga imediatamente para cumprir o fluxo de ir para a página de login
+        await auth.signOut();
+        emProcessoDeCadastro = false;
+
+        mostrarFormularioLogin(email);
+        mostrarToast('✅ Conta criada! Faça login para entrar.');
+      } catch (err) {
+        emProcessoDeCadastro = false;
+        if (err.code === 'auth/email-already-in-use') {
+          mostrarToast('Este e-mail já está cadastrado.');
+        } else if (err.code === 'auth/invalid-email') {
+          mostrarToast('Formato de e-mail inválido.');
+        } else {
+          mostrarToast('Erro ao criar conta: ' + err.message);
+        }
+      }
     }
 
     function fazerLogin() {
@@ -673,27 +774,47 @@
       
       mostrarToast('Autenticando...');
       auth.signInWithEmailAndPassword(email, senha)
-        .then(() => { mostrarToast('Login realizado com sucesso!'); })
-        .catch(err => { mostrarToast('Erro: E-mail ou senha incorretos.'); });
+        .then(() => { mostrarToast('Bem-vindo!'); })
+        .catch(() => { mostrarToast('Erro: E-mail ou senha incorretos.'); });
     }
 
     function fazerLogout() {
       auth.signOut();
+      mostrarFormularioLogin();
       mostrarToast('Você saiu da conta.');
     }
 
     function iniciarSincronizacaoTempoReal() {
       dbListener = db.ref('usuarios/' + userId + '/dados');
       dbListener.on('value', snapshot => {
+        isSyncing = true;
         if (snapshot.exists()) {
-          isSyncing = true; // Impede que o app reenvie a mesma informação e crie loop
-          mesclarDadosNuvem(snapshot.val());
-          isSyncing = false;
+          carregarDadosDaNuvem(snapshot.val());
         } else {
-          // Se o banco estiver vazio (primeiro acesso pós-login), envia os dados locais
-          enviarParaNuvem();
+          // Conta nova sem dados no banco: inicia limpa
+          estado = criarEstadoVazio();
+          localStorage.setItem(obterChaveStorage(userId), JSON.stringify(estado));
+          renderizarTudo();
         }
+        isSyncing = false;
       });
+    }
+
+    function carregarDadosDaNuvem(dadosNuvem) {
+      if (!dadosNuvem) return;
+
+      estado = {
+        contas: Array.isArray(dadosNuvem.contas) ? dadosNuvem.contas : [],
+        assinaturas: Array.isArray(dadosNuvem.assinaturas) ? dadosNuvem.assinaturas : [],
+        parcelados: Array.isArray(dadosNuvem.parcelados) ? dadosNuvem.parcelados : [],
+        deletedIds: Array.isArray(dadosNuvem.deletedIds) ? dadosNuvem.deletedIds : [],
+        contasOrderTime: dadosNuvem.contasOrderTime || 0,
+        assinaturasOrderTime: dadosNuvem.assinaturasOrderTime || 0,
+        parceladosOrderTime: dadosNuvem.parceladosOrderTime || 0
+      };
+
+      localStorage.setItem(obterChaveStorage(userId), JSON.stringify(estado));
+      renderizarTudo();
     }
 
     async function enviarParaNuvem() {
@@ -706,123 +827,16 @@
     }
 
     // -----------------------------------------------------
-    // 3. LÓGICA DE NEGÓCIO E MESCLAGEM
+    // 4. LÓGICA DE NEGÓCIO E INTERFACE
     // -----------------------------------------------------
     function salvarNoAparelho() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+      if (userId) {
+        localStorage.setItem(obterChaveStorage(userId), JSON.stringify(estado));
+      }
       renderizarTudo();
-      enviarParaNuvem(); // Sempre que houver uma ação sua, dispara para o Firebase
+      enviarParaNuvem();
     }
 
-    function mesclarDadosNuvem(dadosNuvem) {
-      if (!dadosNuvem) return;
-
-      let allDeleted = new Set([...(estado.deletedIds || []), ...(dadosNuvem.deletedIds || [])]);
-      estado.deletedIds = Array.from(allDeleted);
-
-      // Mesclagem de Contas
-      if (dadosNuvem.contas) {
-        let mapaLocal = new Map(estado.contas.map(c => [c.id, c]));
-        let novaListaContas = [];
-        dadosNuvem.contas.forEach(cn => {
-          if (!cn.id) cn.id = 'acc_' + Math.random().toString(36).substr(2, 9);
-          if (allDeleted.has(cn.id)) return;
-          let existente = mapaLocal.get(cn.id);
-          if (existente) {
-            existente.nome = cn.nome;
-            existente.valor = cn.valor;
-            existente.dia = cn.dia;
-            if (cn.pago !== undefined) {
-              let incObj = (typeof cn.pago === 'object' && cn.pago !== null) ? cn.pago : { checked: Boolean(cn.pago), time: 0 };
-              let locObj = (typeof existente.pago === 'object' && existente.pago !== null) ? existente.pago : { checked: Boolean(existente.pago), time: 0 };
-              if (incObj.time >= locObj.time) existente.pago = incObj;
-            }
-            novaListaContas.push(existente);
-            mapaLocal.delete(cn.id);
-          } else {
-            novaListaContas.push(cn);
-          }
-        });
-        mapaLocal.forEach(c => { if (!allDeleted.has(c.id)) novaListaContas.push(c); });
-
-        if ((dadosNuvem.contasOrderTime || 0) >= (estado.contasOrderTime || 0)) {
-          estado.contasOrderTime = dadosNuvem.contasOrderTime;
-          let ordemNuvemIds = dadosNuvem.contas.map(c => c.id);
-          novaListaContas.sort((a, b) => (ordemNuvemIds.indexOf(a.id) === -1 ? 1 : ordemNuvemIds.indexOf(a.id)) - (ordemNuvemIds.indexOf(b.id) === -1 ? 1 : ordemNuvemIds.indexOf(b.id)));
-        }
-        estado.contas = novaListaContas;
-      }
-      estado.contas = estado.contas.filter(c => !allDeleted.has(c.id));
-
-      // Mesclagem de Assinaturas
-      if (dadosNuvem.assinaturas) {
-        let mapaLocalSubs = new Map(estado.assinaturas.map(s => [s.id, s]));
-        let novaListaSubs = [];
-        dadosNuvem.assinaturas.forEach(sn => {
-          if (!sn.id) sn.id = 'sub_' + Math.random().toString(36).substr(2, 9);
-          if (allDeleted.has(sn.id)) return;
-          let existente = mapaLocalSubs.get(sn.id);
-          if (existente) {
-            existente.nome = sn.nome;
-            existente.valor = sn.valor;
-            existente.dia = sn.dia;
-            existente.ciclo = sn.ciclo;
-            novaListaSubs.push(existente);
-            mapaLocalSubs.delete(sn.id);
-          } else {
-            novaListaSubs.push(sn);
-          }
-        });
-        mapaLocalSubs.forEach(s => { if (!allDeleted.has(s.id)) novaListaSubs.push(s); });
-
-        if ((dadosNuvem.assinaturasOrderTime || 0) >= (estado.assinaturasOrderTime || 0)) {
-          estado.assinaturasOrderTime = dadosNuvem.assinaturasOrderTime;
-          let ordemNuvemSubsIds = dadosNuvem.assinaturas.map(s => s.id);
-          novaListaSubs.sort((a, b) => (ordemNuvemSubsIds.indexOf(a.id) === -1 ? 1 : ordemNuvemSubsIds.indexOf(a.id)) - (ordemNuvemSubsIds.indexOf(b.id) === -1 ? 1 : ordemNuvemSubsIds.indexOf(b.id)));
-        }
-        estado.assinaturas = novaListaSubs;
-      }
-      estado.assinaturas = estado.assinaturas.filter(s => !allDeleted.has(s.id));
-
-      // Mesclagem de Parcelados
-      if (dadosNuvem.parcelados) {
-        let mapaLocalPar = new Map(estado.parcelados.map(p => [p.id, p]));
-        let novaListaPar = [];
-        dadosNuvem.parcelados.forEach(pn => {
-          if (!pn.id) pn.id = 'par_' + Math.random().toString(36).substr(2, 9);
-          if (allDeleted.has(pn.id)) return;
-          let existente = mapaLocalPar.get(pn.id);
-          if (existente) {
-            existente.nome = pn.nome;
-            existente.valor = pn.valor;
-            existente.parcelaAtual = pn.parcelaAtual;
-            existente.totalParcelas = pn.totalParcelas;
-            if (pn.acaoTime && (!existente.acaoTime || pn.acaoTime >= existente.acaoTime)) {
-              existente.parcelaAtual = pn.parcelaAtual;
-              existente.acaoTime = pn.acaoTime;
-            }
-            novaListaPar.push(existente);
-            mapaLocalPar.delete(pn.id);
-          } else {
-            novaListaPar.push(pn);
-          }
-        });
-        mapaLocalPar.forEach(p => { if (!allDeleted.has(p.id)) novaListaPar.push(p); });
-
-        if ((dadosNuvem.parceladosOrderTime || 0) >= (estado.parceladosOrderTime || 0)) {
-          estado.parceladosOrderTime = dadosNuvem.parceladosOrderTime;
-          let ordemNuvemParIds = dadosNuvem.parcelados.map(p => p.id);
-          novaListaPar.sort((a, b) => (ordemNuvemParIds.indexOf(a.id) === -1 ? 1 : ordemNuvemParIds.indexOf(a.id)) - (ordemNuvemParIds.indexOf(b.id) === -1 ? 1 : ordemNuvemParIds.indexOf(b.id)));
-        }
-        estado.parcelados = novaListaPar;
-      }
-      estado.parcelados = estado.parcelados.filter(p => !allDeleted.has(p.id));
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
-      renderizarTudo();
-    }
-
-    // (Regras Visuais)
     function isPago(conta) {
       if (!conta.pago) return false;
       let val = conta.pago;
