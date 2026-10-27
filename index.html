@@ -460,17 +460,20 @@
     <div class="modal-sheet" style="margin: 20px; border-radius: 22px;">
       <div style="text-align: center; margin-bottom: 24px;">
         <h2 style="font-size: 1.45rem; color: var(--text-primary); margin-bottom: 6px;">Acesso Restrito</h2>
-        <p style="font-size: 0.85rem; color: var(--text-secondary);">Faça login para sincronizar suas finanças.</p>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Faça login ou crie uma conta para gerenciar suas finanças.</p>
       </div>
       <div class="form-group">
         <label>E-mail</label>
-        <input type="email" id="emailLogin" placeholder="Seu e-mail cadastrado">
+        <input type="email" id="emailLogin" placeholder="Ex: wilson@email.com">
       </div>
       <div class="form-group">
         <label>Senha</label>
-        <input type="password" id="senhaLogin" placeholder="Sua senha">
+        <input type="password" id="senhaLogin" placeholder="Mínimo 6 caracteres">
       </div>
-      <button class="btn-modal btn-modal-save" style="width: 100%; margin-top: 15px;" onclick="fazerLogin()">Entrar</button>
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button class="btn-modal btn-modal-order" style="flex: 1;" onclick="criarConta()">Criar Conta</button>
+        <button class="btn-modal btn-modal-save" style="flex: 1;" onclick="fazerLogin()">Entrar</button>
+      </div>
     </div>
   </div>
 
@@ -484,9 +487,9 @@
             <h1 id="mainTitle">Contas da Casa</h1>
           </div>
           <div class="nav-actions">
-            <button class="btn-ios btn-ios-secondary" onclick="sincronizarManual()" title="Forçar sincronização">🔄 Sincronizar</button>
+            <!-- Botão de Sincronizar Removido -->
             <button class="btn-ios btn-ios-secondary" onclick="fazerLogout()" title="Sair da conta">🚪 Sair</button>
-            <button class="btn-ios btn-ios-secondary" onclick="enviarRelatorioWhatsApp()" title="Enviar relatório para Rayssa">📄 Relatório</button>
+            <button class="btn-ios btn-ios-secondary" onclick="enviarRelatorioWhatsApp()" title="Enviar relatório">📄 Relatório</button>
             <button class="btn-ios btn-ios-primary" onclick="abrirModalNovo()"><span id="btnNovoTexto">+ Nova Conta</span></button>
           </div>
         </div>
@@ -632,6 +635,8 @@
         userId = user.uid;
         document.getElementById('loginOverlay').style.display = 'none';
         document.getElementById('appContent').style.display = 'block';
+        document.getElementById('emailLogin').value = '';
+        document.getElementById('senhaLogin').value = '';
         iniciarSincronizacaoTempoReal();
       } else {
         userId = null;
@@ -641,6 +646,26 @@
       }
     });
 
+    function criarConta() {
+      const email = document.getElementById('emailLogin').value.trim();
+      const senha = document.getElementById('senhaLogin').value.trim();
+      if (!email || !senha) { mostrarToast('Preencha e-mail e senha para criar a conta.'); return; }
+      if (senha.length < 6) { mostrarToast('A senha deve ter no mínimo 6 caracteres.'); return; }
+
+      mostrarToast('Criando conta...');
+      auth.createUserWithEmailAndPassword(email, senha)
+        .then(() => {
+          mostrarToast('Conta criada com sucesso!');
+        })
+        .catch(err => {
+          if(err.code === 'auth/email-already-in-use') {
+            mostrarToast('Este e-mail já está cadastrado.');
+          } else {
+            mostrarToast('Erro: ' + err.message);
+          }
+        });
+    }
+
     function fazerLogin() {
       const email = document.getElementById('emailLogin').value.trim();
       const senha = document.getElementById('senhaLogin').value.trim();
@@ -649,12 +674,12 @@
       mostrarToast('Autenticando...');
       auth.signInWithEmailAndPassword(email, senha)
         .then(() => { mostrarToast('Login realizado com sucesso!'); })
-        .catch(err => { mostrarToast('Erro: ' + err.message); });
+        .catch(err => { mostrarToast('Erro: E-mail ou senha incorretos.'); });
     }
 
     function fazerLogout() {
       auth.signOut();
-      mostrarToast('Você saiu.');
+      mostrarToast('Você saiu da conta.');
     }
 
     function iniciarSincronizacaoTempoReal() {
@@ -678,17 +703,6 @@
       } catch (e) {
         console.error('Erro ao enviar para Firebase', e);
       }
-    }
-
-    async function sincronizarManual() {
-      if (!userId) return;
-      mostrarToast('Sincronizando...');
-      const snapshot = await db.ref('usuarios/' + userId + '/dados').get();
-      if (snapshot.exists()) {
-        mesclarDadosNuvem(snapshot.val());
-      }
-      await enviarParaNuvem();
-      mostrarToast('Tudo atualizado!');
     }
 
     // -----------------------------------------------------
@@ -808,7 +822,7 @@
       renderizarTudo();
     }
 
-    // (O restante do código abaixo mantém todas as suas regras visuais intactas)
+    // (Regras Visuais)
     function isPago(conta) {
       if (!conta.pago) return false;
       let val = conta.pago;
